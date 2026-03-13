@@ -2,7 +2,7 @@
 //  AppDelegate.swift
 //  Mindora
 //
-//  Created by pawanpreet singh on 17/12/25.
+//  Created by pawanpreet singh/Users/pawanpreetsingh/Downloads/Mindora_Final 5/Mindora/FadeSegue.swift on 17/12/25.
 //
 
 import UIKit

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="21701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="abt-vc-001">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="21701"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <scene sceneID="abt-sc-001">
+            <objects>
+                <viewController id="abt-vc-001" customClass="AboutViewController" customModule="Mindora" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="abt-vw-001">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="abt-bb-001">
+                                <rect key="frame" x="16" y="60" width="40" height="40"/>
+                                <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="40" id="abt-bb-w"/>
+                                    <constraint firstAttribute="height" constant="40" id="abt-bb-h"/>
+                                </constraints>
+                                <state key="normal" image="chevron.left" catalog="system" title=""/>
+                                <userDefinedRuntimeAttributes>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="cornerRadius">
+                                        <real key="value" value="20"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.shadowOpacity">
+                                        <real key="value" value="0.10000000000000001"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.shadowRadius">
+                                        <real key="value" value="4"/>
+                                    </userDefinedRuntimeAttribute>
+                                </userDefinedRuntimeAttributes>
+                                <connections>
+                                    <action selector="backTapped:" destination="abt-vc-001" eventType="touchUpInside" id="abt-bb-act"/>
+                                </connections>
+                            </button>
+                            <scrollView clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" translatesAutoresizingMaskIntoConstraints="NO" id="abt-sv-001">
+                                <rect key="frame" x="0.0" y="110" width="393" height="742"/>
+                                <subviews>
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="abt-cv-001">
+                                        <rect key="frame" x="0.0" y="0.0" width="393" height="742"/>
+                                        <color key="backgroundColor" red="0.0" green="0.0" blue="0.0" alpha="0.0" colorSpace="custom" customColorSpace="sRGB"/>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="742" id="abt-cv-h" placeholder="YES"/>
+                                        </constraints>
+                                    </view>
+                                </subviews>
+                                <color key="backgroundColor" red="0.0" green="0.0" blue="0.0" alpha="0.0" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstItem="abt-cv-001" firstAttribute="top" secondItem="abt-sv-001" secondAttribute="top" id="abt-sv-c1"/>
+                                    <constraint firstItem="abt-cv-001" firstAttribute="leading" secondItem="abt-sv-001" secondAttribute="leading" id="abt-sv-c2"/>
+                                    <constraint firstAttribute="bottom" secondItem="abt-cv-001" secondAttribute="bottom" id="abt-sv-c3"/>
+                                    <constraint firstAttribute="trailing" secondItem="abt-cv-001" secondAttribute="trailing" id="abt-sv-c4"/>
+                                    <constraint firstItem="abt-cv-001" firstAttribute="width" secondItem="abt-sv-001" secondAttribute="width" id="abt-sv-c5"/>
+                                </constraints>
+                            </scrollView>
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="abt-sa-001"/>
+                        <color key="backgroundColor" red="0.97254901959999995" green="0.96078431369999995" blue="0.93333333330000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <constraint firstItem="abt-bb-001" firstAttribute="leading" secondItem="abt-sa-001" secondAttribute="leading" constant="16" id="abt-c1"/>
+                            <constraint firstItem="abt-bb-001" firstAttribute="top" secondItem="abt-sa-001" secondAttribute="top" constant="10" id="abt-c2"/>
+                            <constraint firstItem="abt-sv-001" firstAttribute="top" secondItem="abt-sa-001" secondAttribute="top" constant="60" id="abt-c3"/>
+                            <constraint firstItem="abt-sv-001" firstAttribute="leading" secondItem="abt-vw-001" secondAttribute="leading" id="abt-c4"/>
+                            <constraint firstItem="abt-vw-001" firstAttribute="trailing" secondItem="abt-sv-001" secondAttribute="trailing" id="abt-c5"/>
+                            <constraint firstItem="abt-vw-001" firstAttribute="bottom" secondItem="abt-sv-001" secondAttribute="bottom" id="abt-c6"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <outlet property="scrollView" destination="abt-sv-001" id="abt-sv-out"/>
+                        <outlet property="contentView" destination="abt-cv-001" id="abt-cv-out"/>
+                    </connections>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="abt-fr-001" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="0.0" y="0.0"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="chevron.left" catalog="system" width="97" height="128"/>
+    </resources>
+</document>

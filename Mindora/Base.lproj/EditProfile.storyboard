@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="21701" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="ep-vc-001">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="21701"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <scene sceneID="ep-sc-001">
+            <objects>
+                <viewController id="ep-vc-001" customClass="EditProfileViewController" customModule="Mindora" customModuleProvider="target" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="ep-vw-001">
+                        <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+                        <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+
+                            <!-- Back Button -->
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="ep-bb-001">
+                                <rect key="frame" x="16" y="60" width="40" height="40"/>
+                                <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="40" id="ep-bb-w"/>
+                                    <constraint firstAttribute="height" constant="40" id="ep-bb-h"/>
+                                </constraints>
+                                <state key="normal" image="chevron.left" catalog="system" title=""/>
+                                <userDefinedRuntimeAttributes>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="cornerRadius">
+                                        <real key="value" value="20"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.shadowOpacity">
+                                        <real key="value" value="0.10000000000000001"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.shadowRadius">
+                                        <real key="value" value="4"/>
+                                    </userDefinedRuntimeAttribute>
+                                </userDefinedRuntimeAttributes>
+                                <connections>
+                                    <action selector="backTapped:" destination="ep-vc-001" eventType="touchUpInside" id="ep-bb-act"/>
+                                </connections>
+                            </button>
+
+                            <!-- Title Label -->
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Edit Profile" textAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="ep-title-001">
+                                <rect key="frame" x="80" y="68" width="233" height="28"/>
+                                <fontDescription key="fontDescription" type="boldSystem" pointSize="22"/>
+                                <color key="textColor" red="0.14999999999999999" green="0.14999999999999999" blue="0.14999999999999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+
+                            <!-- Avatar Image View -->
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="ep-av-001">
+                                <rect key="frame" x="141.5" y="130" width="110" height="110"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="110" id="ep-av-w"/>
+                                    <constraint firstAttribute="height" constant="110" id="ep-av-h"/>
+                                </constraints>
+                            </imageView>
+
+                            <!-- Change Photo Button -->
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="ep-cp-001">
+                                <rect key="frame" x="141.5" y="252" width="110" height="24"/>
+                                <state key="normal" title="Change Photo"/>
+                                <connections>
+                                    <action selector="changePhotoTapped:" destination="ep-vc-001" eventType="touchUpInside" id="ep-cp-act"/>
+                                </connections>
+                            </button>
+
+                            <!-- Remove Photo Button -->
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="ep-rp-001">
+                                <rect key="frame" x="141.5" y="282" width="110" height="20"/>
+                                <state key="normal" title="Remove Photo"/>
+                                <connections>
+                                    <action selector="removePhotoTapped:" destination="ep-vc-001" eventType="touchUpInside" id="ep-rp-act"/>
+                                </connections>
+                            </button>
+
+                            <!-- Card View for fields -->
+                            <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="ep-card-001">
+                                <rect key="frame" x="16" y="328" width="361" height="160"/>
+                                <subviews>
+
+                                    <!-- Name Section Label -->
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="DISPLAY NAME" translatesAutoresizingMaskIntoConstraints="NO" id="ep-nl-001">
+                                        <rect key="frame" x="16" y="16" width="329" height="16"/>
+                                        <fontDescription key="fontDescription" type="system" pointSize="12"/>
+                                        <color key="textColor" systemColor="systemGrayColor"/>
+                                        <nil key="highlightedColor"/>
+                                    </label>
+
+                                    <!-- Name Text Field -->
+                                    <textField opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="left" contentVerticalAlignment="center" borderStyle="none" placeholder="Your name" textAlignment="natural" minimumFontSize="17" translatesAutoresizingMaskIntoConstraints="NO" id="ep-tf-001">
+                                        <rect key="frame" x="0.0" y="40" width="361" height="50"/>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="50" id="ep-tf-h"/>
+                                        </constraints>
+                                        <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                        <textInputTraits key="textInputTraits" returnKeyType="done" autocorrectionType="no"/>
+                                    </textField>
+
+                                    <!-- Divider -->
+                                    <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="ep-div-001">
+                                        <rect key="frame" x="16" y="90" width="329" height="1"/>
+                                        <color key="backgroundColor" systemColor="systemGray5Color"/>
+                                        <constraints>
+                                            <constraint firstAttribute="height" constant="1" id="ep-div-h"/>
+                                        </constraints>
+                                    </view>
+
+                                    <!-- Email Section Label -->
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="EMAIL" translatesAutoresizingMaskIntoConstraints="NO" id="ep-el-001">
+                                        <rect key="frame" x="16" y="103" width="329" height="16"/>
+                                        <fontDescription key="fontDescription" type="system" pointSize="12"/>
+                                        <color key="textColor" systemColor="systemGrayColor"/>
+                                        <nil key="highlightedColor"/>
+                                    </label>
+
+                                    <!-- Email Value Label -->
+                                    <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="email@example.com" translatesAutoresizingMaskIntoConstraints="NO" id="ep-ev-001">
+                                        <rect key="frame" x="16" y="127" width="329" height="22"/>
+                                        <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                        <color key="textColor" systemColor="systemGrayColor"/>
+                                        <nil key="highlightedColor"/>
+                                    </label>
+
+                                </subviews>
+                                <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="160" id="ep-card-h"/>
+                                    <constraint firstItem="ep-nl-001" firstAttribute="leading" secondItem="ep-card-001" secondAttribute="leading" constant="16" id="ep-c-nl-l"/>
+                                    <constraint firstItem="ep-nl-001" firstAttribute="top" secondItem="ep-card-001" secondAttribute="top" constant="16" id="ep-c-nl-t"/>
+                                    <constraint firstItem="ep-card-001" firstAttribute="trailing" secondItem="ep-nl-001" secondAttribute="trailing" constant="16" id="ep-c-nl-r"/>
+                                    <constraint firstItem="ep-tf-001" firstAttribute="leading" secondItem="ep-card-001" secondAttribute="leading" constant="0" id="ep-c-tf-l"/>
+                                    <constraint firstItem="ep-tf-001" firstAttribute="top" secondItem="ep-nl-001" secondAttribute="bottom" constant="8" id="ep-c-tf-t"/>
+                                    <constraint firstItem="ep-card-001" firstAttribute="trailing" secondItem="ep-tf-001" secondAttribute="trailing" constant="0" id="ep-c-tf-r"/>
+                                    <constraint firstItem="ep-div-001" firstAttribute="leading" secondItem="ep-card-001" secondAttribute="leading" constant="16" id="ep-c-div-l"/>
+                                    <constraint firstItem="ep-div-001" firstAttribute="top" secondItem="ep-tf-001" secondAttribute="bottom" constant="0" id="ep-c-div-t"/>
+                                    <constraint firstItem="ep-card-001" firstAttribute="trailing" secondItem="ep-div-001" secondAttribute="trailing" constant="16" id="ep-c-div-r"/>
+                                    <constraint firstItem="ep-el-001" firstAttribute="leading" secondItem="ep-card-001" secondAttribute="leading" constant="16" id="ep-c-el-l"/>
+                                    <constraint firstItem="ep-el-001" firstAttribute="top" secondItem="ep-div-001" secondAttribute="bottom" constant="12" id="ep-c-el-t"/>
+                                    <constraint firstItem="ep-card-001" firstAttribute="trailing" secondItem="ep-el-001" secondAttribute="trailing" constant="16" id="ep-c-el-r"/>
+                                    <constraint firstItem="ep-ev-001" firstAttribute="leading" secondItem="ep-card-001" secondAttribute="leading" constant="16" id="ep-c-ev-l"/>
+                                    <constraint firstItem="ep-ev-001" firstAttribute="top" secondItem="ep-el-001" secondAttribute="bottom" constant="4" id="ep-c-ev-t"/>
+                                    <constraint firstItem="ep-card-001" firstAttribute="trailing" secondItem="ep-ev-001" secondAttribute="trailing" constant="16" id="ep-c-ev-r"/>
+                                </constraints>
+                                <userDefinedRuntimeAttributes>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
+                                        <real key="value" value="16"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.shadowOpacity">
+                                        <real key="value" value="0.070000000000000007"/>
+                                    </userDefinedRuntimeAttribute>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.shadowRadius">
+                                        <real key="value" value="8"/>
+                                    </userDefinedRuntimeAttribute>
+                                </userDefinedRuntimeAttributes>
+                            </view>
+
+                            <!-- Save Button -->
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="ep-sv-001">
+                                <rect key="frame" x="16" y="516" width="361" height="54"/>
+                                <color key="backgroundColor" red="0.20000000000000001" green="0.59999999999999998" blue="1" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="54" id="ep-sv-h"/>
+                                </constraints>
+                                <state key="normal" title="Save Changes"/>
+                                <userDefinedRuntimeAttributes>
+                                    <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
+                                        <real key="value" value="14"/>
+                                    </userDefinedRuntimeAttribute>
+                                </userDefinedRuntimeAttributes>
+                                <connections>
+                                    <action selector="saveTapped:" destination="ep-vc-001" eventType="touchUpInside" id="ep-sv-act"/>
+                                </connections>
+                            </button>
+
+                        </subviews>
+                        <viewLayoutGuide key="safeArea" id="ep-sa-001"/>
+                        <color key="backgroundColor" red="0.97254901959999995" green="0.96078431369999995" blue="0.93333333330000001" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <!-- Back button -->
+                            <constraint firstItem="ep-bb-001" firstAttribute="leading" secondItem="ep-sa-001" secondAttribute="leading" constant="16" id="ep-c1"/>
+                            <constraint firstItem="ep-bb-001" firstAttribute="top" secondItem="ep-sa-001" secondAttribute="top" constant="10" id="ep-c2"/>
+                            <!-- Title -->
+                            <constraint firstItem="ep-title-001" firstAttribute="centerX" secondItem="ep-vw-001" secondAttribute="centerX" id="ep-c3"/>
+                            <constraint firstItem="ep-title-001" firstAttribute="centerY" secondItem="ep-bb-001" secondAttribute="centerY" id="ep-c4"/>
+                            <!-- Avatar -->
+                            <constraint firstItem="ep-av-001" firstAttribute="centerX" secondItem="ep-vw-001" secondAttribute="centerX" id="ep-c5"/>
+                            <constraint firstItem="ep-av-001" firstAttribute="top" secondItem="ep-bb-001" secondAttribute="bottom" constant="20" id="ep-c6"/>
+                            <!-- Change photo -->
+                            <constraint firstItem="ep-cp-001" firstAttribute="centerX" secondItem="ep-vw-001" secondAttribute="centerX" id="ep-c7"/>
+                            <constraint firstItem="ep-cp-001" firstAttribute="top" secondItem="ep-av-001" secondAttribute="bottom" constant="12" id="ep-c8"/>
+                            <!-- Remove photo -->
+                            <constraint firstItem="ep-rp-001" firstAttribute="centerX" secondItem="ep-vw-001" secondAttribute="centerX" id="ep-c9"/>
+                            <constraint firstItem="ep-rp-001" firstAttribute="top" secondItem="ep-cp-001" secondAttribute="bottom" constant="4" id="ep-c10"/>
+                            <!-- Card -->
+                            <constraint firstItem="ep-card-001" firstAttribute="leading" secondItem="ep-sa-001" secondAttribute="leading" constant="16" id="ep-c11"/>
+                            <constraint firstItem="ep-sa-001" firstAttribute="trailing" secondItem="ep-card-001" secondAttribute="trailing" constant="16" id="ep-c12"/>
+                            <constraint firstItem="ep-card-001" firstAttribute="top" secondItem="ep-rp-001" secondAttribute="bottom" constant="24" id="ep-c13"/>
+                            <!-- Save button -->
+                            <constraint firstItem="ep-sv-001" firstAttribute="leading" secondItem="ep-sa-001" secondAttribute="leading" constant="16" id="ep-c14"/>
+                            <constraint firstItem="ep-sa-001" firstAttribute="trailing" secondItem="ep-sv-001" secondAttribute="trailing" constant="16" id="ep-c15"/>
+                            <constraint firstItem="ep-sv-001" firstAttribute="top" secondItem="ep-card-001" secondAttribute="bottom" constant="28" id="ep-c16"/>
+                        </constraints>
+                    </view>
+                    <connections>
+                        <outlet property="avatarImageView" destination="ep-av-001" id="ep-av-out"/>
+                        <outlet property="changePhotoButton" destination="ep-cp-001" id="ep-cp-out"/>
+                        <outlet property="removePhotoButton" destination="ep-rp-001" id="ep-rp-out"/>
+                        <outlet property="nameTextField" destination="ep-tf-001" id="ep-tf-out"/>
+                        <outlet property="emailLabel" destination="ep-ev-001" id="ep-ev-out"/>
+                        <outlet property="saveButton" destination="ep-sv-001" id="ep-sv-out"/>
+                    </connections>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="ep-fr-001" userLabel="First Responder" customClass="UIResponder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="0.0" y="0.0"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="chevron.left" catalog="system" width="97" height="128"/>
+    </resources>
+</document>
