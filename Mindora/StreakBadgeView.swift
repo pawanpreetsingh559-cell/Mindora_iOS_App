@@ -92,8 +92,6 @@ class StreakBadgeView: UIView {
     private let iconImageView    = UIImageView()
     private let dayCountLabel    = UILabel()
     private let dayWordLabel     = UILabel()
-    private let tierLabel        = UILabel()
-    private let starsStack       = UIStackView()
 
     // MARK: - State
     private var tier: StreakTier = .bronze
@@ -161,20 +159,6 @@ class StreakBadgeView: UIView {
         dayWordLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(dayWordLabel)
 
-        // Tier label
-        tierLabel.textAlignment = .center
-        tierLabel.font          = .systemFont(ofSize: 9, weight: .heavy)
-        tierLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(tierLabel)
-
-        // Stars stack
-        starsStack.axis         = .horizontal
-        starsStack.spacing      = 3
-        starsStack.alignment    = .center
-        starsStack.distribution = .fillEqually
-        starsStack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(starsStack)
-
         NSLayoutConstraint.activate([
             iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
             iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -20),
@@ -185,14 +169,7 @@ class StreakBadgeView: UIView {
             dayCountLabel.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: 2),
 
             dayWordLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            dayWordLabel.topAnchor.constraint(equalTo: dayCountLabel.bottomAnchor, constant: 0),
-
-            tierLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            tierLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18),
-
-            starsStack.centerXAnchor.constraint(equalTo: centerXAnchor),
-            starsStack.bottomAnchor.constraint(equalTo: tierLabel.topAnchor, constant: -4),
-            starsStack.heightAnchor.constraint(equalToConstant: 12)
+            dayWordLabel.topAnchor.constraint(equalTo: dayCountLabel.bottomAnchor, constant: 0)
         ])
     }
 
@@ -268,8 +245,6 @@ class StreakBadgeView: UIView {
             dayCountLabel.text         = "\(days)"
             dayCountLabel.textColor    = .systemGray
             dayWordLabel.textColor     = .systemGray2
-            tierLabel.text             = tier.label
-            tierLabel.textColor        = .systemGray2
         } else {
             gradientLayer.colors       = tier.gradientColors
             outerRingLayer.strokeColor = tier.ringColor.cgColor
@@ -279,28 +254,11 @@ class StreakBadgeView: UIView {
             dayCountLabel.text         = "\(days)"
             dayCountLabel.textColor    = .white
             dayWordLabel.textColor     = UIColor.white.withAlphaComponent(0.85)
-            tierLabel.text             = tier.label
-            tierLabel.textColor        = UIColor.white.withAlphaComponent(0.9)
             pulseGlow()
         }
 
-        buildStars(count: tier.starCount, isLocked: isLocked)
         setNeedsLayout()
         layoutIfNeeded()
-    }
-
-    // MARK: - Stars
-    private func buildStars(count: Int, isLocked: Bool) {
-        starsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        let color: UIColor = isLocked ? .systemGray3 : .white
-        for _ in 0..<count {
-            let iv = UIImageView(image: UIImage(systemName: "star.fill"))
-            iv.tintColor = color
-            iv.contentMode = .scaleAspectFit
-            iv.widthAnchor.constraint(equalToConstant: 10).isActive = true
-            iv.heightAnchor.constraint(equalToConstant: 10).isActive = true
-            starsStack.addArrangedSubview(iv)
-        }
     }
 
     // MARK: - Glow Pulse Animation

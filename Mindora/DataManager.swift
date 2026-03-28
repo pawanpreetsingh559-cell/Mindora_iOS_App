@@ -1,11 +1,3 @@
-//
-//  DataManager.swift
-//  Mindora
-//
-//  Created by pawanpreet singh on 19/12/25.
-//  Fully migrated to Supabase — no local storage.
-//
-
 import Foundation
 import UIKit
 import Supabase
@@ -26,6 +18,9 @@ struct AnalyticsData: Codable {
     var sessionCount: [String: Int] = [:]
     var completedGardens: Int = 0
     var moodHistory: [String: [Int]] = [:]
+    // Tracks the totalButterflies value at which the garden-complete alert was last shown.
+    // Prevents the alert from re-appearing every time the Garden screen opens.
+    var lastGardenAlertedAt: Int = -1
 }
 
 struct CurrentUserData: Codable {
@@ -58,6 +53,10 @@ class DataManager {
     private var currentUser: CurrentUserData?
     private var currentUserAnalytics: AnalyticsData = AnalyticsData()
     private var currentUserId: String?
+    
+    // Set to true after the user removes their photo so that any loadProfilePhoto
+    // call (even those hitting the URLSession cache) returns nil immediately.
+    private var profilePhotoDeleted = false
     
     // Hardcoded library of quotes
     private let quoteLibrary: [Quote] = [
@@ -147,6 +146,9 @@ class DataManager {
         guard let userId = currentUserId else { return }
         let analytics = currentUserAnalytics
         
+        // Save locally immediately so offline mode always has the freshest data
+        saveAnalyticsToCache(analytics)
+        
         Task {
             do {
                 let row: [String: AnyJSON] = [
@@ -196,7 +198,7 @@ class DataManager {
                 .value
             
             await MainActor.run {
-                self.currentUserAnalytics = AnalyticsData(
+                let fetchedAnalytics = AnalyticsData(
                     totalPoints: row.total_points,
                     totalButterflies: row.total_butterflies,
                     currentStreak: row.current_streak,
@@ -206,6 +208,10 @@ class DataManager {
                     completedGardens: row.completed_gardens,
                     moodHistory: self.decodeJSON(row.mood_history) ?? [:]
                 )
+                self.currentUserAnalytics = fetchedAnalytics
+                
+                // Immediately save the downloaded analytics to local cache for offline viewing later
+                self.saveAnalyticsToCache(fetchedAnalytics)
             }
         } catch {
             print("[Supabase] Analytics fetch failed: \(error.localizedDescription)")
@@ -223,6 +229,42 @@ class DataManager {
     private func decodeJSON<T: Decodable>(_ string: String) -> T? {
         guard let data = string.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(T.self, from: data)
+    }
+
+    // MARK: - Local Caching (For Offline Mode)
+    
+    private let kCachedProfileKey = "com.mindora.cachedProfile"
+    private let kCachedAnalyticsKey = "com.mindora.cachedAnalytics"
+
+    private func saveProfileToCache(_ data: CurrentUserData) {
+        if let json = try? JSONEncoder().encode(data) {
+            UserDefaults.standard.set(json, forKey: kCachedProfileKey)
+        }
+    }
+    
+    private func loadProfileFromCache() -> CurrentUserData? {
+        guard let data = UserDefaults.standard.data(forKey: kCachedProfileKey) else { return nil }
+        return try? JSONDecoder().decode(CurrentUserData.self, from: data)
+    }
+
+    private func saveAnalyticsToCache(_ data: AnalyticsData) {
+        if let json = try? JSONEncoder().encode(data) {
+            UserDefaults.standard.set(json, forKey: kCachedAnalyticsKey)
+        }
+    }
+
+    private func loadAnalyticsFromCache() -> AnalyticsData? {
+        guard let data = UserDefaults.standard.data(forKey: kCachedAnalyticsKey) else { return nil }
+        return try? JSONDecoder().decode(AnalyticsData.self, from: data)
+    }
+    
+    private func clearCache() {
+        UserDefaults.standard.removeObject(forKey: kCachedProfileKey)
+        UserDefaults.standard.removeObject(forKey: kCachedAnalyticsKey)
+        UserDefaults.standard.removeObject(forKey: "AvatarFontIndex")
+        UserDefaults.standard.removeObject(forKey: "AvatarColorIndex")
+        UserDefaults.standard.removeObject(forKey: "AvatarColorIndexSet")
+        UserDefaults.standard.removeObject(forKey: "AvatarThemeIndex")
     }
     
     // MARK: - User Management (Supabase Auth — Async with Completion Handlers)
@@ -289,29 +331,25 @@ class DataManager {
     
     // MARK: - OTP Authentication
     
+    // Credentials stored locally until OTP is verified.
+    // Zero Supabase records are created until verifySignUpOTP succeeds.
+    private var pendingSignUpName: String = ""
+    private var pendingSignUpPassword: String = ""
+    
     func sendSignUpOTP(name: String, email: String, password: String, completion: @escaping (Bool, String?) -> Void) {
+        // Save credentials in memory — nothing is written to Supabase yet.
+        // signInWithOTP only creates a temporary passwordless placeholder
+        // with NO password — it cannot be used to log in.
+        // Your profiles / analytics / settings tables stay completely empty.
+        self.pendingSignUpName = name
+        self.pendingSignUpPassword = password
+        
         Task {
             do {
-                // Step 1: Create user account (Confirm email must be OFF in Supabase)
-                _ = try await supabase.auth.signUp(
-                    email: email,
-                    password: password,
-                    data: ["name": AnyJSON(stringLiteral: name)]
-                )
-                
-                // Step 2: Sign out so user can't access app yet
-                try await supabase.auth.signOut()
-                
-                // Step 3: Send OTP via magic link system
                 try await supabase.auth.signInWithOTP(email: email)
-                
-                await MainActor.run {
-                    completion(true, nil)
-                }
+                await MainActor.run { completion(true, nil) }
             } catch {
-                await MainActor.run {
-                    completion(false, error.localizedDescription)
-                }
+                await MainActor.run { completion(false, error.localizedDescription) }
             }
         }
     }
@@ -332,8 +370,13 @@ class DataManager {
     }
     
     func verifySignUpOTP(email: String, token: String, name: String, password: String, completion: @escaping (Bool, String?) -> Void) {
+        // Use in-memory credentials stored during sendSignUpOTP.
+        let finalName = pendingSignUpName.isEmpty ? name : pendingSignUpName
+        let finalPassword = pendingSignUpPassword.isEmpty ? password : pendingSignUpPassword
+        
         Task {
             do {
+                // Step 1: Verify OTP — this confirms the email and starts a session.
                 let response = try await supabase.auth.verifyOTP(
                     email: email,
                     token: token,
@@ -347,30 +390,45 @@ class DataManager {
                     return
                 }
                 
+                // Step 2: Set the password + name on this account NOW (after OTP verified).
+                // This converts the temporary passwordless placeholder into a real account.
+                try await supabase.auth.update(user: UserAttributes(
+                    password: finalPassword,
+                    data: ["name": AnyJSON(stringLiteral: finalName)]
+                ))
+                
                 let userId = session.user.id.uuidString
                 self.currentUserId = userId
                 
+                // Step 3: Create all app DB rows — only runs if OTP was verified.
                 let profileData: [String: AnyJSON] = [
                     "id": AnyJSON(stringLiteral: userId),
-                    "name": AnyJSON(stringLiteral: name),
+                    "name": AnyJSON(stringLiteral: finalName),
                     "email": AnyJSON(stringLiteral: email)
                 ]
-                try await supabase.from("profiles").insert(profileData).execute()
+                try await supabase.from("profiles").upsert(profileData).execute()
                 
                 let analyticsData: [String: AnyJSON] = ["user_id": AnyJSON(stringLiteral: userId)]
-                try await supabase.from("analytics").insert(analyticsData).execute()
+                try await supabase.from("analytics").upsert(analyticsData).execute()
                 
                 let settingsData: [String: AnyJSON] = ["user_id": AnyJSON(stringLiteral: userId)]
-                try await supabase.from("settings").insert(settingsData).execute()
+                try await supabase.from("settings").upsert(settingsData).execute()
+                
+                // Clear pending credentials
+                self.pendingSignUpName = ""
+                self.pendingSignUpPassword = ""
                 
                 await MainActor.run {
                     self.currentUserAnalytics = AnalyticsData()
-                    self.currentUser = CurrentUserData(
-                        name: name,
+                    let newUser = CurrentUserData(
+                        name: finalName,
                         email: email,
                         isLoggedIn: true,
                         lastLoginDate: self.getCurrentDate()
                     )
+                    self.currentUser = newUser
+                    self.saveProfileToCache(newUser)
+                    self.saveAnalyticsToCache(self.currentUserAnalytics)
                     completion(true, nil)
                 }
             } catch {
@@ -392,8 +450,15 @@ class DataManager {
                     completion(true, nil)
                 }
             } catch {
-                await MainActor.run {
-                    completion(false, error.localizedDescription)
+                let errorStr = error.localizedDescription.lowercased()
+                if errorStr.contains("not confirmed") || errorStr.contains("unverified") || errorStr.contains("email address not authorized") {
+                    await MainActor.run {
+                        completion(false, "Your account creation was incomplete. Please use the Sign Up screen to finish registering.")
+                    }
+                } else {
+                    await MainActor.run {
+                        completion(false, error.localizedDescription)
+                    }
                 }
             }
         }
@@ -418,21 +483,34 @@ class DataManager {
                 let userId = session.user.id.uuidString
                 self.currentUserId = userId
                 
-                let profile: ProfileRow = try await supabase
+                // Safely fetch profile — if no profile exists this user never
+                // completed sign-up. Show a helpful error instead of crashing.
+                let profiles: [ProfileRow] = try await supabase
                     .from("profiles")
                     .select()
                     .eq("id", value: userId)
-                    .single()
                     .execute()
                     .value
                 
+                guard let profile = profiles.first else {
+                    // Account exists in auth but never completed sign-up.
+                    try? await supabase.auth.signOut()
+                    await MainActor.run {
+                        completion(false, "Your account setup is incomplete. Please sign up again to finish creating your account.")
+                    }
+                    return
+                }
+                
                 await MainActor.run {
-                    self.currentUser = CurrentUserData(
+                    let user = CurrentUserData(
                         name: profile.name,
                         email: profile.email,
                         isLoggedIn: true,
                         lastLoginDate: self.getCurrentDate()
                     )
+                    self.currentUser = user
+                    self.saveProfileToCache(user)
+                    NotificationCenter.default.post(name: NSNotification.Name("UserProfileUpdated"), object: nil)
                 }
                 
                 await self.fetchAnalyticsFromSupabase()
@@ -453,6 +531,22 @@ class DataManager {
     func sendPasswordResetOTP(email: String, completion: @escaping (Bool, String?) -> Void) {
         Task {
             do {
+                // First check the profiles table to confirm this email belongs to a real account.
+                let profiles: [ProfileRow] = try await supabase
+                    .from("profiles")
+                    .select()
+                    .eq("email", value: email)
+                    .execute()
+                    .value
+                
+                guard !profiles.isEmpty else {
+                    await MainActor.run {
+                        completion(false, "No account found with this email address. Please sign up first.")
+                    }
+                    return
+                }
+                
+                // Email confirmed — send the OTP.
                 try await supabase.auth.signInWithOTP(email: email)
                 await MainActor.run {
                     completion(true, nil)
@@ -563,6 +657,168 @@ class DataManager {
         currentUser = nil
         currentUserAnalytics = AnalyticsData()
         currentUserId = nil
+        clearCache()
+    }
+    
+    // MARK: - Account Deletion
+    
+    func deleteAccount(completion: @escaping (Bool, String?) -> Void) {
+        guard let userId = currentUserId else {
+            completion(false, "No user logged in.")
+            return
+        }
+        
+        Task {
+            do {
+                // Step 1: Delete app-level DB rows
+                try? await supabase.from("profiles").delete().eq("id", value: userId).execute()
+                try? await supabase.from("analytics").delete().eq("user_id", value: userId).execute()
+                try? await supabase.from("settings").delete().eq("user_id", value: userId).execute()
+                
+                // Step 2: Delete the Supabase auth user via the RPC helper
+                try await supabase.rpc("delete_user").execute()
+                
+                // Step 3: Sign out locally
+                try? await supabase.auth.signOut()
+                
+                await MainActor.run {
+                    self.currentUser?.isLoggedIn = false
+                    self.currentUser = nil
+                    self.currentUserAnalytics = AnalyticsData()
+                    self.currentUserId = nil
+                    self.clearCache()
+                    completion(true, nil)
+                }
+            } catch {
+                // If the RPC fails (e.g. network issue), still sign out locally so
+                // the user is not stuck — they can try again after re-logging in.
+                try? await supabase.auth.signOut()
+                await MainActor.run {
+                    self.currentUser = nil
+                    self.currentUserId = nil
+                    self.clearCache()
+                    completion(false, "Account deletion failed: \(error.localizedDescription)")
+                }
+            }
+        }
+    }
+    
+    // MARK: - Avatar Theme Management
+    func getAvatarTheme() -> Int {
+        return UserDefaults.standard.integer(forKey: "AvatarThemeIndex")
+    }
+    
+    func setAvatarTheme(_ index: Int) {
+        UserDefaults.standard.set(index, forKey: "AvatarThemeIndex")
+    }
+    
+    func generateInitialsImage(name: String, size: CGSize, forceTheme: Int? = nil) -> UIImage {
+        let initials = name.components(separatedBy: " ")
+            .compactMap { $0.first.map { String($0) } }
+            .prefix(2).joined().uppercased()
+            
+        UIGraphicsBeginImageContextWithOptions(size, false, 0)
+        let ctx = UIGraphicsGetCurrentContext()!
+        
+        // Clip to circle so the icon itself is rounded, important for UIAlertAction previews
+        UIBezierPath(ovalIn: CGRect(origin: .zero, size: size)).addClip()
+        
+        let themeIndex = forceTheme ?? getAvatarTheme()
+        var colors: [UIColor]
+        var font: UIFont
+        let fontSize = size.width * 0.4
+        
+        switch themeIndex {
+        case 1:
+            // Elegant Gold
+            colors = [UIColor(red: 0.1, green: 0.1, blue: 0.1, alpha: 1.0), UIColor(red: 0.8, green: 0.6, blue: 0.2, alpha: 1.0)]
+            font = UIFont(name: "Palatino-Bold", size: fontSize) ?? UIFont.systemFont(ofSize: fontSize, weight: .bold)
+        case 2:
+            // Playful Pastel
+            colors = [UIColor(red: 1.0, green: 0.6, blue: 0.6, alpha: 1.0), UIColor(red: 1.0, green: 0.8, blue: 0.4, alpha: 1.0)]
+            font = UIFont(name: "MarkerFelt-Wide", size: fontSize) ?? UIFont.systemFont(ofSize: fontSize, weight: .bold)
+        case 3:
+            // Tech Monospace
+            colors = [UIColor(red: 0.2, green: 0.0, blue: 0.4, alpha: 1.0), UIColor(red: 0.0, green: 0.8, blue: 0.4, alpha: 1.0)]
+            font = UIFont(name: "Menlo-Bold", size: fontSize) ?? UIFont.systemFont(ofSize: fontSize, weight: .bold)
+        case 4:
+            // Minimal Dark
+            colors = [UIColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 1.0), UIColor(red: 0.4, green: 0.4, blue: 0.4, alpha: 1.0)]
+            font = UIFont(name: "HelveticaNeue-UltraLight", size: fontSize) ?? UIFont.systemFont(ofSize: fontSize, weight: .light)
+        default:
+            // Custom colour palette — matches CustomizeInitialViewController.colorOptions order.
+            // If the user picked a colour via the Customize Initial sheet it is stored as
+            // AvatarColorIndex (>= 0). Fall back to the name-hash palette otherwise.
+            let customPalette: [(UIColor, UIColor)] = [
+                (UIColor(red:0.0,green:0.580,blue:1.0,alpha:1), UIColor(red:0.0,green:0.45,blue:0.85,alpha:1)),
+                (UIColor(red:0.50,green:0.92,blue:0.94,alpha:1), UIColor(red:0.30,green:0.72,blue:0.80,alpha:1)),
+                (UIColor(red:0.45,green:0.95,blue:0.70,alpha:1), UIColor(red:0.25,green:0.75,blue:0.50,alpha:1)),
+                (UIColor(red:0.70,green:0.90,blue:0.68,alpha:1), UIColor(red:0.50,green:0.75,blue:0.50,alpha:1)),
+                (UIColor(red:0.80,green:0.65,blue:0.98,alpha:1), UIColor(red:0.65,green:0.45,blue:0.85,alpha:1)),
+                (UIColor(red:1.00,green:0.62,blue:0.75,alpha:1), UIColor(red:0.90,green:0.40,blue:0.55,alpha:1)),
+                (UIColor(red:1.00,green:0.85,blue:0.45,alpha:1), UIColor(red:0.95,green:0.65,blue:0.25,alpha:1)),
+            ]
+            let colorIndex = UserDefaults.standard.integer(forKey: "AvatarColorIndex")
+            // integer(forKey:) returns 0 if unset, so treat -1 (unused) as "not set".
+            // We use a separate flag key to distinguish "user chose index 0" vs "never set".
+            let userChoseColor = UserDefaults.standard.bool(forKey: "AvatarColorIndexSet")
+            if userChoseColor, colorIndex < customPalette.count {
+                let pair = customPalette[colorIndex]
+                colors = [pair.0, pair.1]
+            } else {
+                // Fall back to the default blue color
+                let pair = customPalette[0]
+                colors = [pair.0, pair.1]
+            }
+            
+            // Font — respect AvatarFontIndex for theme-0 variants (Bold, Rounded, Script, etc.)
+            let fontIndex = UserDefaults.standard.integer(forKey: "AvatarFontIndex")
+            switch fontIndex {
+            case 0: // Bold
+                font = UIFont.systemFont(ofSize: fontSize, weight: .bold)
+            case 1: // Rounded
+                var base = UIFont.systemFont(ofSize: fontSize, weight: .bold)
+                if let rd = base.fontDescriptor.withDesign(.rounded) { base = UIFont(descriptor: rd, size: fontSize) }
+                font = base
+            case 2: // Serif
+                font = UIFont(name: "Palatino-Bold", size: fontSize) ?? UIFont.systemFont(ofSize: fontSize, weight: .bold)
+            case 3: // Pastel
+                font = UIFont(name: "MarkerFelt-Wide", size: fontSize) ?? UIFont.systemFont(ofSize: fontSize, weight: .bold)
+            case 4: // Mono
+                font = UIFont(name: "Menlo-Bold", size: fontSize) ?? UIFont.systemFont(ofSize: fontSize, weight: .bold)
+            case 5: // Minimal
+                font = UIFont(name: "HelveticaNeue-UltraLight", size: fontSize) ?? UIFont.systemFont(ofSize: fontSize, weight: .light)
+            case 6: // Script
+                font = UIFont(name: "Noteworthy-Bold", size: fontSize) ?? UIFont.systemFont(ofSize: fontSize, weight: .bold)
+            default:
+                var base = UIFont.systemFont(ofSize: fontSize, weight: .bold)
+                if let rd = base.fontDescriptor.withDesign(.rounded) { base = UIFont(descriptor: rd, size: fontSize) }
+                font = base
+            }
+        }
+        
+        let gradient = CGGradient(
+            colorsSpace: CGColorSpaceCreateDeviceRGB(),
+            colors: colors.map { $0.cgColor } as CFArray,
+            locations: [0, 1])!
+        ctx.drawLinearGradient(gradient,
+                               start: .zero,
+                               end: CGPoint(x: size.width, y: size.height),
+                               options: [])
+                               
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: UIColor.white
+        ]
+        let derivedInitials = initials.isEmpty ? "G" : initials
+        let str = derivedInitials as NSString
+        let strSize = str.size(withAttributes: attrs)
+        str.draw(at: CGPoint(x: (size.width - strSize.width) / 2,
+                             y: (size.height - strSize.height) / 2),
+                 withAttributes: attrs)
+        let img = UIGraphicsGetImageFromCurrentImageContext()!
+        UIGraphicsEndImageContext()
+        return img
     }
     
     func getCurrentUser() -> CurrentUserData? {
@@ -572,32 +828,70 @@ class DataManager {
     /// Restore session from Supabase (async — called from splash screen)
     func restoreSession() async -> Bool {
         do {
+            // Step 1: Check the locally cached auth token (works 100% offline — stored in Keychain).
+            // If this throws, the user has never logged in or explicitly signed out → go to Onboarding.
             let session = try await supabase.auth.session
             let userId = session.user.id.uuidString
             self.currentUserId = userId
-            
-            // Fetch profile
-            let profile: ProfileRow = try await supabase
-                .from("profiles")
-                .select()
-                .eq("id", value: userId)
-                .single()
-                .execute()
-                .value
-            
+
+            // Step 2: Attempt to load the LAST KNOWN data from UserDefaults cache immediately.
+            // This ensures the Dashboard has the correct Name, Streaks, Points, etc., instantly offline.
             await MainActor.run {
-                self.currentUser = CurrentUserData(
-                    name: profile.name,
-                    email: profile.email,
-                    isLoggedIn: true,
-                    lastLoginDate: self.getCurrentDate()
-                )
+                // Try caching analytics first
+                if let cachedAnalytics = self.loadAnalyticsFromCache() {
+                    self.currentUserAnalytics = cachedAnalytics
+                }
+
+                // Try caching profile
+                if let cachedProfile = self.loadProfileFromCache() {
+                    self.currentUser = cachedProfile
+                } else {
+                    // Extreme fallback if NO cache exists (but they are logged in)
+                    self.currentUser = CurrentUserData(
+                        name: session.user.email ?? "User",
+                        email: session.user.email ?? "",
+                        isLoggedIn: true,
+                        lastLoginDate: self.getCurrentDate()
+                    )
+                }
             }
-            
-            await self.fetchAnalyticsFromSupabase()
+
+            // Step 3: Attempt to refresh profile & analytics from Supabase in the background.
+            // If the device is offline this block simply fails silently — the user is already
+            // inside the Dashboard with their last-known local data from the steps above.
+            Task {
+                do {
+                    let profile: ProfileRow = try await supabase
+                        .from("profiles")
+                        .select()
+                        .eq("id", value: userId)
+                        .single()
+                        .execute()
+                        .value
+
+                    await MainActor.run {
+                        let updatedUser = CurrentUserData(
+                            name: profile.name,
+                            email: profile.email,
+                            isLoggedIn: true,
+                            lastLoginDate: self.getCurrentDate()
+                        )
+                        self.currentUser = updatedUser
+                        self.saveProfileToCache(updatedUser)
+                    }
+
+                    await self.fetchAnalyticsFromSupabase()
+                } catch {
+                    print("[Supabase] Background profile refresh skipped (offline?): \(error.localizedDescription)")
+                }
+            }
+
+            // Return true immediately — the session token confirmed the user is logged in.
             return true
+
         } catch {
-            print("[Supabase] Session restore failed: \(error.localizedDescription)")
+            // No valid local session token → user is not logged in → go to Onboarding.
+            print("[Supabase] No saved session found: \(error.localizedDescription)")
             return false
         }
     }
@@ -623,13 +917,29 @@ class DataManager {
     // MARK: - Profile Photo (Supabase Storage Only)
     private let profilePhotoBucket = "profile-photos"
     
-    func saveProfilePhoto(_ image: UIImage) {
-        guard let data = image.jpegData(compressionQuality: 0.8) else { return }
-        guard let userId = currentUserId else { return }
-        
+    func saveProfilePhoto(_ image: UIImage, completion: ((Bool) -> Void)? = nil) {
+        // User is uploading a new photo — clear the deleted flag.
+        profilePhotoDeleted = false
+        // Resize to max 400×400 before uploading — drastically reduces upload size
+        let maxDimension: CGFloat = 400
+        let scale = min(maxDimension / image.size.width, maxDimension / image.size.height, 1.0)
+        let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 1.0)
+        image.draw(in: CGRect(origin: .zero, size: newSize))
+        let resized = UIGraphicsGetImageFromCurrentImageContext() ?? image
+        UIGraphicsEndImageContext()
+
+        guard let data = resized.jpegData(compressionQuality: 0.5) else {
+            completion?(false); return
+        }
+
         Task {
             do {
+                let session = try await supabase.auth.session
+                let userId = session.user.id.uuidString.lowercased()
                 let filePath = "\(userId)/profile.jpg"
+                print("[Supabase] Uploading photo (\(data.count / 1024)KB), path: \(filePath)")
+
                 try await supabase.storage
                     .from(profilePhotoBucket)
                     .upload(
@@ -637,48 +947,73 @@ class DataManager {
                         data: data,
                         options: FileOptions(contentType: "image/jpeg", upsert: true)
                     )
+                print("[Supabase] Photo uploaded successfully.")
+                await MainActor.run { completion?(true) }
             } catch {
-                print("[Supabase] Photo upload failed: \(error.localizedDescription)")
+                print("[Supabase] Photo upload failed: \(error)")
+                await MainActor.run { completion?(false) }
             }
         }
     }
     
     func loadProfilePhoto(completion: @escaping (UIImage?) -> Void) {
-        guard let userId = currentUserId else {
+        // If the user just deleted their photo, skip the network/cache fetch entirely.
+        if profilePhotoDeleted {
             completion(nil)
             return
         }
         
+        guard let userId = currentUserId else {
+            completion(nil)
+            return
+        }
+
         Task {
-            do {
-                let filePath = "\(userId)/profile.jpg"
-                let data = try await supabase.storage
-                    .from(profilePhotoBucket)
-                    .download(path: filePath)
-                    
-                let image = UIImage(data: data)
-                await MainActor.run {
-                    completion(image)
-                }
-            } catch {
-                await MainActor.run {
-                    completion(nil)
+            // Try lowercase path first (new standard), fall back to uppercase (legacy)
+            let paths = [userId.lowercased(), userId]
+            for path in paths {
+                do {
+                    let filePath = "\(path)/profile.jpg"
+                    let data = try await supabase.storage
+                        .from(profilePhotoBucket)
+                        .download(path: filePath)
+                    if let image = UIImage(data: data) {
+                        await MainActor.run { completion(image) }
+                        return
+                    }
+                } catch {
+                    // Try next path
                 }
             }
+            await MainActor.run { completion(nil) }
         }
     }
     
-    func deleteProfilePhoto() {
-        guard let userId = currentUserId else { return }
+    func deleteProfilePhoto(completion: (() -> Void)? = nil) {
         Task {
+            // Mark as deleted immediately so loadProfilePhoto returns nil from now on,
+            // even if the Supabase call is still in-flight or the URLSession cache hit.
+            await MainActor.run { self.profilePhotoDeleted = true }
+            
+            // Also purge the URLSession cache so the stale photo isn't served from disk.
+            URLCache.shared.removeAllCachedResponses()
+            
             do {
-                let filePath = "\(userId)/profile.jpg"
-                try await supabase.storage
-                    .from(profilePhotoBucket)
-                    .remove(paths: [filePath])
+                let session = try await supabase.auth.session
+                let userId = session.user.id.uuidString.lowercased()
+                let paths = ["\(userId)/profile.jpg", "\(userId.uppercased())/profile.jpg"]
+                do {
+                    let removed = try await supabase.storage
+                        .from(profilePhotoBucket)
+                        .remove(paths: paths)
+                    print("[Supabase] Photo delete — removed \(removed.count) object(s)")
+                } catch {
+                    print("[Supabase] ❌ remove() FAILED: \(error)")
+                }
             } catch {
-                print("[Supabase] Photo delete failed: \(error.localizedDescription)")
+                print("[Supabase] ❌ deleteProfilePhoto — auth session error: \(error)")
             }
+            await MainActor.run { completion?() }
         }
     }
     
@@ -715,9 +1050,12 @@ class DataManager {
         let today = getCurrentDate()
         if let lastDate = currentUserAnalytics.lastSessionDate {
             let daysBetween = daysDifference(from: lastDate, to: today)
-            if daysBetween == 1 {
+            if daysBetween == 0 {
+                // Same day — no streak change, skip the Supabase write
+                return
+            } else if daysBetween == 1 {
                 currentUserAnalytics.currentStreak += 1
-            } else if daysBetween > 1 {
+            } else {
                 currentUserAnalytics.currentStreak = 1
             }
         } else {
@@ -758,6 +1096,13 @@ class DataManager {
         currentUserAnalytics.completedGardens += 1
         saveData()
         syncAchievements()
+    }
+    
+    /// Call this when the garden-complete alert is dismissed (reset or keep).
+    /// Records the current butterfly count so the alert won't show again for the same milestone.
+    func markGardenAlertShown() {
+        currentUserAnalytics.lastGardenAlertedAt = currentUserAnalytics.totalButterflies
+        saveData()
     }
     
     func getAnalytics() -> AnalyticsData {
@@ -855,6 +1200,115 @@ class DataManager {
         }
         
         return (currentScores, previousScores, labels)
+    }
+    
+    // MARK: - Monthly Mood Data
+    func getMonthlyMoodData() -> (scores: [Double?], labels: [String], monthName: String) {
+        var scores: [Double?] = []
+        var labels: [String] = []
+        
+        let today = Date()
+        let calendar = Calendar.current
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        let monthName = formatter.string(from: today)
+        
+        guard let monthRange = calendar.range(of: .day, in: .month, for: today),
+              let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) else {
+            return ([], [], monthName)
+        }
+        
+        let currentDayNumber = calendar.component(.day, from: today)
+        
+        for day in 1...monthRange.count {
+            labels.append("\(day)")
+            
+            if day > currentDayNumber {
+                scores.append(nil)
+            } else {
+                if let date = calendar.date(byAdding: .day, value: day - 1, to: startOfMonth) {
+                    let key = dateToString(date)
+                    if let dayScores = currentUserAnalytics.moodHistory[key], !dayScores.isEmpty {
+                        let avg = Double(dayScores.reduce(0, +)) / Double(dayScores.count)
+                        scores.append(avg)
+                    } else {
+                        scores.append(0.0)
+                    }
+                } else {
+                    scores.append(0.0)
+                }
+            }
+        }
+        
+        return (scores, labels, monthName)
+    }
+    
+    // MARK: - Monthly Comparison (Current vs Previous Month)
+    func getMonthlyComparison() -> (current: [Double?], previous: [Double], labels: [String], currentMonthName: String, previousMonthName: String) {
+        let calendar = Calendar.current
+        let today = Date()
+        
+        let monthFormatter = DateFormatter()
+        monthFormatter.dateFormat = "MMMM"
+        let currentMonthName = monthFormatter.string(from: today)
+        
+        // Start of current month
+        guard let currentMonthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) else {
+            return ([], [], [], currentMonthName, "")
+        }
+        
+        // Start of previous month
+        guard let previousMonthStart = calendar.date(byAdding: .month, value: -1, to: currentMonthStart) else {
+            return ([], [], [], currentMonthName, "")
+        }
+        let previousMonthName = monthFormatter.string(from: previousMonthStart)
+        
+        // Days in each month
+        guard let currentMonthRange = calendar.range(of: .day, in: .month, for: currentMonthStart),
+              let previousMonthRange = calendar.range(of: .day, in: .month, for: previousMonthStart) else {
+            return ([], [], [], currentMonthName, previousMonthName)
+        }
+        
+        let maxDays = max(currentMonthRange.count, previousMonthRange.count)
+        let currentDayNumber = calendar.component(.day, from: today)
+        
+        var currentScores: [Double?] = []
+        var previousScores: [Double] = []
+        var labels: [String] = []
+        
+        for day in 1...maxDays {
+            labels.append("\(day)")
+            
+            // Previous month
+            if day <= previousMonthRange.count,
+               let pDate = calendar.date(byAdding: .day, value: day - 1, to: previousMonthStart) {
+                let key = dateToString(pDate)
+                if let scores = currentUserAnalytics.moodHistory[key], !scores.isEmpty {
+                    previousScores.append(Double(scores.reduce(0, +)) / Double(scores.count))
+                } else {
+                    previousScores.append(0.0)
+                }
+            } else {
+                previousScores.append(0.0)
+            }
+            
+            // Current month
+            if day > currentMonthRange.count || day > currentDayNumber {
+                currentScores.append(nil)
+            } else if let cDate = calendar.date(byAdding: .day, value: day - 1, to: currentMonthStart) {
+                let key = dateToString(cDate)
+                if let scores = currentUserAnalytics.moodHistory[key], !scores.isEmpty {
+                    currentScores.append(Double(scores.reduce(0, +)) / Double(scores.count))
+                } else {
+                    currentScores.append(0.0)
+                }
+            } else {
+                currentScores.append(0.0)
+            }
+        }
+        
+        return (currentScores, previousScores, labels, currentMonthName, previousMonthName)
     }
     
     private func dateToString(_ date: Date) -> String {

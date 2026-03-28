@@ -1,10 +1,3 @@
-//
-//  BreathingViewController.swift
-//  Mindora final
-//
-//  Created by pawanpreet singh on 15/12/25.
-//
-
 import UIKit
 import AVFoundation
 
@@ -33,6 +26,7 @@ class BreathingViewController: UIViewController {
     private var speechSynthesizer: AVSpeechSynthesizer?
     private var hasSetupAnimations: Bool = false
     private var isLeavingConfirmed: Bool = false
+    private var wasRunningBeforeBackground: Bool = false
     
     // MARK: - Breathing Animation Properties
     private var breathingAnimationView: UIView?
@@ -180,13 +174,17 @@ class BreathingViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        view.backgroundColor = .systemBackground
         setupUI()
         setupAudio()
         setupSpeechSynthesizer()
+        setupSoundPickerButton()
         
+        // Prevent iPhone from going to sleep during exercises
+        UIApplication.shared.isIdleTimerDisabled = true
         // Disable swipe-back gesture to prevent accidental exit
         navigationController?.interactivePopGestureRecognizer?.isEnabled = false
-        
+
         // Custom back button with quit confirmation
         let backButton = UIBarButtonItem(image: UIImage(systemName: "chevron.left"),
                                          style: .plain,
@@ -194,56 +192,90 @@ class BreathingViewController: UIViewController {
                                          action: #selector(backButtonTapped))
         navigationItem.leftBarButtonItem = backButton
         navigationItem.hidesBackButton = true
+
+        // Pause when screen locks (power button), resume when unlocked
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppBackground),
+            name: UIApplication.didEnterBackgroundNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAppForeground),
+            name: UIApplication.willEnterForegroundNotification,
+            object: nil
+        )
+
+        // Pause exercise automatically when a phone call interrupts
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleAudioInterruption(_:)),
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance()
+        )
+    }
+
+    @objc private func handleAppBackground() {
+        if isSessionRunning {
+            wasRunningBeforeBackground = true
+            pauseSession()
+        }
+    }
+
+    @objc private func handleAppForeground() {
+        // Only resume if the session was running when screen locked
+        if wasRunningBeforeBackground {
+            wasRunningBeforeBackground = false
+            startSession()
+        }
+    }
+
+    @objc private func handleAudioInterruption(_ notification: Notification) {
+        guard let info = notification.userInfo,
+              let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if type == .began {
+                // Phone call started — pause the exercise
+                if self.isSessionRunning { self.pauseSession() }
+            } else if type == .ended {
+                // Call ended — resume automatically
+                if let optionsValue = info[AVAudioSessionInterruptionOptionKey] as? UInt {
+                    let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+                    if options.contains(.shouldResume) && !self.isSessionRunning {
+                        self.startSession()
+                    }
+                }
+            }
+        }
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         
-        // Setup animations after view appears for smooth transition
-        if !hasSetupAnimations {
-            hasSetupAnimations = true
-            
-            // Setup breathing animation for breathing, shoulder drops, and finger rhythm exercises
-            if exerciseType.lowercased() == "breathing" || 
-               exerciseType.lowercased() == "shoulderdrop" || 
-               exerciseType.lowercased() == "fingerrhythm" {
-                setupBreathingAnimation()
+        // Make rectangular view circular (done here so it doesn't cause GPU stutter during push transition)
+        if let rectView = rectangularView {
+            if (exerciseType.lowercased() == "breathing" || 
+                exerciseType.lowercased() == "shoulderdrop" || 
+                exerciseType.lowercased() == "fingerrhythm") && rectView.frame.width > 0 {
+                rectView.layer.cornerRadius = rectView.frame.width / 2
+                rectView.clipsToBounds = true
+                rectView.backgroundColor = .clear
             }
-            
-            // Setup DVD animation for calming sounds exercise type only
-            if exerciseType.lowercased() == "calmingsounds" {
-                setupDVDAnimation()
-            }
-            
-            // Setup eye relaxation animation
-            if exerciseType.lowercased() == "eyerelaxation" {
-                setupEyeRelaxationAnimation()
-            }
-            
-            // Setup meditation animation
-            if exerciseType.lowercased() == "meditation" {
-                setupMeditationAnimation()
-            }
-            
-            // Advanced Calming Techniques
-            if exerciseType.lowercased() == "physiologicalsigh" { setupPhysiologicalSighAnimation() }
-            if exerciseType.lowercased() == "coherentbreathing" { setupCoherentBreathingAnimation() }
-            if exerciseType.lowercased() == "progressivemuscle" { setupProgressiveMuscleAnimation() }
-            if exerciseType.lowercased() == "grounding54321"    { setupGrounding54321Animation() }
-            if exerciseType.lowercased() == "guidedimagery"     { setupGuidedImageryAnimation() }
-            if exerciseType.lowercased() == "boxbreathing"      { setupBoxBreathingAnimation() }
-            if exerciseType.lowercased() == "heartbreathing"    { setupHeartBreathingAnimation() }
-            if exerciseType.lowercased() == "cognitivereset"    { setupCognitiveResetAnimation() }
-            if exerciseType.lowercased() == "resonancehumming"  { setupResonanceHummingAnimation() }
-            if exerciseType.lowercased() == "microbodyreset"    { setupMicroBodyResetAnimation() }
         }
     }
     
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
+        NotificationCenter.default.removeObserver(self, name: AVAudioSession.interruptionNotification, object: nil)
         if isLeavingConfirmed {
             stopSession()
         }
+        // Re-enable sleep when leaving exercise
+        UIApplication.shared.isIdleTimerDisabled = false
         // Re-enable swipe-back for other screens
         navigationController?.interactivePopGestureRecognizer?.isEnabled = true
     }
@@ -268,7 +300,10 @@ class BreathingViewController: UIViewController {
             self?.confirmQuit()
         })
         
-        alert.addAction(UIAlertAction(title: "Continue", style: .cancel, handler: nil))
+        alert.addAction(UIAlertAction(title: "Continue", style: .cancel) { [weak self] _ in
+            // Resume the exercise automatically when user taps Continue
+            self?.startSession()
+        })
         
         present(alert, animated: true)
     }
@@ -281,20 +316,42 @@ class BreathingViewController: UIViewController {
     
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        // Layout logic moved to viewDidAppear to prevent lag during custom push transitions
         
-        // Make rectangular view circular for breathing exercises (after layout is complete)
-        guard let rectView = rectangularView else { return }
-        
-        if (exerciseType.lowercased() == "breathing" || 
-            exerciseType.lowercased() == "shoulderdrop" || 
-            exerciseType.lowercased() == "fingerrhythm") && rectView.frame.width > 0 {
-            rectView.layer.cornerRadius = rectView.frame.width / 2
-            rectView.clipsToBounds = true
-            rectView.backgroundColor = .clear
+        // Setup animations ONLY ONCE when bounds are valid, before the transition finishes.
+        // This ensures the animation is fully visible on the new screen as soon as it slides in.
+        if !hasSetupAnimations, let rectView = rectangularView, rectView.frame.width > 0 {
+            hasSetupAnimations = true
             
-            if let animationView = breathingAnimationView, animationView.alpha == 0 {
-                showInitialStartPrompt()
+            if exerciseType.lowercased() == "breathing" || 
+               exerciseType.lowercased() == "shoulderdrop" || 
+               exerciseType.lowercased() == "fingerrhythm" {
+                setupBreathingAnimation()
             }
+            
+            if exerciseType.lowercased() == "calmingsounds" {
+                setupDVDAnimation()
+            }
+            
+            if exerciseType.lowercased() == "eyerelaxation" {
+                setupEyeRelaxationAnimation()
+            }
+            
+            if exerciseType.lowercased() == "meditation" {
+                setupMeditationAnimation()
+            }
+            
+            // Advanced Calming Techniques
+            if exerciseType.lowercased() == "physiologicalsigh" { setupPhysiologicalSighAnimation() }
+            if exerciseType.lowercased() == "coherentbreathing" { setupCoherentBreathingAnimation() }
+            if exerciseType.lowercased() == "progressivemuscle" { setupProgressiveMuscleAnimation() }
+            if exerciseType.lowercased() == "grounding54321"    { setupGrounding54321Animation() }
+            if exerciseType.lowercased() == "guidedimagery"     { setupGuidedImageryAnimation() }
+            if exerciseType.lowercased() == "boxbreathing"      { setupBoxBreathingAnimation() }
+            if exerciseType.lowercased() == "heartbreathing"    { setupHeartBreathingAnimation() }
+            if exerciseType.lowercased() == "cognitivereset"    { setupCognitiveResetAnimation() }
+            if exerciseType.lowercased() == "resonancehumming"  { setupResonanceHummingAnimation() }
+            if exerciseType.lowercased() == "microbodyreset"    { setupMicroBodyResetAnimation() }
         }
     }
     
@@ -323,18 +380,95 @@ class BreathingViewController: UIViewController {
         
         // Setup play button
         updatePlayButtonIcon()
+        
+        // Setup sound picker button
+        setupSoundPickerButton()
+    }
+    
+    private func setupSoundPickerButton() {
+        let soundButton = UIBarButtonItem(
+            image: UIImage(systemName: "music.note.list"),
+            style: .plain,
+            target: self,
+            action: #selector(showSoundPicker)
+        )
+        navigationItem.rightBarButtonItem = soundButton
+    }
+    
+    @objc private func showSoundPicker() {
+        let alertController = UIAlertController(
+            title: "Select Background Sound",
+            message: nil,
+            preferredStyle: .actionSheet
+        )
+        
+        let allSounds = SoundManager.shared.getAllSounds()
+        let selectedSound = SoundManager.shared.getSelectedSound()
+        
+        for sound in allSounds {
+            let action = UIAlertAction(title: sound.rawValue, style: .default) { [weak self] _ in
+                self?.changeBGSound(to: sound)
+            }
+            
+            if sound == selectedSound {
+                action.setValue(UIImage(systemName: "checkmark")?.withRenderingMode(.alwaysOriginal).withTintColor(.systemBlue), forKey: "image")
+            }
+            
+            alertController.addAction(action)
+        }
+        
+        alertController.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        
+        if let popoverController = alertController.popoverPresentationController {
+            popoverController.barButtonItem = navigationItem.rightBarButtonItem
+        }
+        
+        present(alertController, animated: true)
+    }
+    
+    private func changeBGSound(to sound: SoundManager.CalmingSound) {
+        // Save preference
+        SoundManager.shared.setSelectedSound(sound)
+        
+        // Get the file name
+        let fileName = SoundManager.shared.getFileName(for: sound)
+        
+        // Stop current audio
+        audioPlayer?.stop()
+        
+        // Load new audio
+        guard let url = Bundle.main.url(forResource: fileName, withExtension: "mp3") else { return }
+        do {
+            audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.numberOfLoops = -1
+            audioPlayer?.volume = 0.7
+            
+            // If session is running, play the new sound
+            if isSessionRunning {
+                audioPlayer?.play()
+            }
+        } catch {
+        }
     }
     
     func setupAudio() {
-        guard let url = Bundle.main.url(forResource: "deep-calm-texture-short-450960", withExtension: "mp3") else { return }
+        let selectedSound = SoundManager.shared.getSelectedSound()
+        let fileName = SoundManager.shared.getFileName(for: selectedSound)
+        
+        guard let url = Bundle.main.url(forResource: fileName, withExtension: "mp3") else { 
+            print("Audio file not found: \(fileName)")
+            return 
+        }
         do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try AVAudioSession.sharedInstance().setActive(true)
             
             audioPlayer = try AVAudioPlayer(contentsOf: url)
             audioPlayer?.numberOfLoops = -1 // Infinite loop
             audioPlayer?.volume = 0.7
+            // Do NOT play automatically - wait for user to tap play button
         } catch {
+            print("Error loading audio: \(error)")
         }
     }
     
@@ -529,10 +663,15 @@ class BreathingViewController: UIViewController {
                         }
                     }
                 } else {
+                    // Resume from pause - restart the instruction timer
                     dvdAnimationView?.layer.resumeAnimation()
                     audioPlayer?.play()
                     mainTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
                         self?.updateProgress()
+                    }
+                    // Restart the instruction timer that was paused
+                    dvdInstructionTimer = Timer.scheduledTimer(withTimeInterval: 24.0, repeats: true) { [weak self] _ in
+                        self?.updateDVDInstruction()
                     }
                 }
             }
@@ -618,10 +757,13 @@ class BreathingViewController: UIViewController {
 
         audioPlayer?.pause()
         mainTimer?.invalidate()
+        mainTimer = nil
 
         // Stop all instruction-cycling timers (advanced techniques + standard)
         instructionTimer?.invalidate()
+        instructionTimer = nil
         breathingCycleTimer?.invalidate()
+        breathingCycleTimer = nil
 
         // Stop voice instructions
         speechSynthesizer?.stopSpeaking(at: .immediate)
@@ -648,16 +790,21 @@ class BreathingViewController: UIViewController {
         // Pause DVD animation (pause rotation)
         if exerciseType.lowercased() == "calmingsounds" {
             dvdAnimationView?.layer.pauseAnimation()
+            // CRITICAL: Stop the instruction timer - this prevents instructions from changing while paused
+            dvdInstructionTimer?.invalidate()
+            dvdInstructionTimer = nil
         }
 
         // Pause eye / body-scan animations
         if exerciseType.lowercased() == "eyerelaxation" {
             eyeAnimationView?.layer.pauseAnimation()
             eyeInstructionTimer?.invalidate()
+            eyeInstructionTimer = nil
         }
         if exerciseType.lowercased() == "meditation" {
             meditationAnimationView?.layer.pauseAnimation()
             meditationInstructionTimer?.invalidate()
+            meditationInstructionTimer = nil
         }
     }
     
@@ -718,43 +865,274 @@ class BreathingViewController: UIViewController {
     private func finishSession() {
         stopSession()
         
-        // 1. Data Logic
         let points = 5
         DataManager.shared.addPoints(points)
         DataManager.shared.incrementSessionCount()
+        DataManager.shared.updateStreak()
         
         let totalSessions = DataManager.shared.getAnalytics().totalSessions
-        if totalSessions % 4 == 0 {
+        let stageIndex = totalSessions % 4
+        let grewButterfly = (stageIndex == 0)
+        if grewButterfly {
             DataManager.shared.addButterfly()
         }
         
-        DataManager.shared.updateStreak()
-        
-        
         NotificationCenter.default.post(name: NSNotification.Name("SessionCompletedNotification"), object: nil)
         
+
         // 2. Alert Message
         let sessionsToday = DataManager.shared.getSessionCountForDay()
-        let stageIndex = sessionsToday % 4
+        let alertStageIndex = sessionsToday % 4
         
-        var message = "Great! You've completed your 2-minute breathing exercise.\n\n+\(points) Points Earned! 🏆\n\n"
+        if grewButterfly {
+            // 🦋 BUTTERFLY CELEBRATION — sparkles + special popup
+            showButterflySparkles()
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.showButterflyCelebrationPopup(points: points)
+            }
+        } else {
+            var message = "Great! You've completed your 2-minute breathing exercise.\n\n+\(points) Points Earned! 🏆\n\n"
+            
+            switch alertStageIndex {
+            case 1: message += "You have completed Egg stage 🥚"
+            case 2: message += "You have completed Caterpillar stage 🐛"
+            case 3: message += "You have completed Pupa stage 🫘"
+            default: message += "Session Complete"
+            }
+            
+            let alert = UIAlertController(title: "Session Complete! 🎉", message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+                self?.navigateToMoodScreen()
+            })
+            present(alert, animated: true)
+        }
+    }
+    
+    // MARK: - Butterfly Celebration
+    private func showButterflySparkles() {
+        let emitterLayer = CAEmitterLayer()
+        emitterLayer.emitterPosition = CGPoint(x: view.bounds.midX, y: -20)
+        emitterLayer.emitterShape = .line
+        emitterLayer.emitterSize = CGSize(width: view.bounds.width * 1.2, height: 1)
+        emitterLayer.renderMode = .additive
         
-        switch stageIndex {
-        case 1: message += "You have completed Egg stage"
-        case 2: message += "You have completed Caterpillar stage"
-        case 3: message += "You have completed Pupa stage"
-        case 0: message += "You have grown a Butterfly!"
-        default: message += "Session Complete"
+        // Sparkle cell
+        let sparkleCell = CAEmitterCell()
+        sparkleCell.birthRate = 25
+        sparkleCell.lifetime = 5.0
+        sparkleCell.velocity = 120
+        sparkleCell.velocityRange = 60
+        sparkleCell.emissionLongitude = .pi
+        sparkleCell.emissionRange = .pi / 4
+        sparkleCell.spin = 3.0
+        sparkleCell.spinRange = 6.0
+        sparkleCell.scale = 0.06
+        sparkleCell.scaleRange = 0.04
+        sparkleCell.scaleSpeed = -0.01
+        sparkleCell.alphaSpeed = -0.15
+        sparkleCell.contents = UIImage(systemName: "sparkle")?.withTintColor(.systemYellow, renderingMode: .alwaysOriginal).cgImage
+        sparkleCell.color = UIColor.systemYellow.cgColor
+        
+        // Star cell
+        let starCell = CAEmitterCell()
+        starCell.birthRate = 15
+        starCell.lifetime = 4.5
+        starCell.velocity = 100
+        starCell.velocityRange = 50
+        starCell.emissionLongitude = .pi
+        starCell.emissionRange = .pi / 3
+        starCell.spin = 2.0
+        starCell.spinRange = 4.0
+        starCell.scale = 0.08
+        starCell.scaleRange = 0.05
+        starCell.scaleSpeed = -0.01
+        starCell.alphaSpeed = -0.2
+        starCell.contents = UIImage(systemName: "star.fill")?.withTintColor(.white, renderingMode: .alwaysOriginal).cgImage
+        starCell.color = UIColor.white.cgColor
+        
+        // Butterfly cell
+        let butterflyCell = CAEmitterCell()
+        butterflyCell.birthRate = 4
+        butterflyCell.lifetime = 6.0
+        butterflyCell.velocity = 80
+        butterflyCell.velocityRange = 40
+        butterflyCell.emissionLongitude = .pi
+        butterflyCell.emissionRange = .pi / 4
+        butterflyCell.spin = 1.0
+        butterflyCell.spinRange = 2.0
+        butterflyCell.scale = 0.12
+        butterflyCell.scaleRange = 0.06
+        butterflyCell.alphaSpeed = -0.12
+        
+        // Create a butterfly emoji image
+        let butterflyRenderer = UIGraphicsImageRenderer(size: CGSize(width: 40, height: 40))
+        let butterflyImg = butterflyRenderer.image { ctx in
+            let str = NSAttributedString(string: "🦋", attributes: [.font: UIFont.systemFont(ofSize: 30)])
+            str.draw(at: CGPoint(x: 2, y: 2))
+        }
+        butterflyCell.contents = butterflyImg.cgImage
+        
+        // Confetti cells — multiple colors
+        var confettiCells: [CAEmitterCell] = []
+        let confettiColors: [UIColor] = [.systemPurple, .systemPink, .systemBlue, .systemGreen, .systemOrange, .systemCyan]
+        for color in confettiColors {
+            let confetti = CAEmitterCell()
+            confetti.birthRate = 8
+            confetti.lifetime = 5.0
+            confetti.velocity = 140
+            confetti.velocityRange = 70
+            confetti.emissionLongitude = .pi
+            confetti.emissionRange = .pi / 3
+            confetti.spin = 4.0
+            confetti.spinRange = 8.0
+            confetti.scale = 0.04
+            confetti.scaleRange = 0.03
+            confetti.alphaSpeed = -0.18
+            confetti.contents = UIImage(systemName: "circle.fill")?.withTintColor(color, renderingMode: .alwaysOriginal).cgImage
+            confetti.color = color.cgColor
+            confettiCells.append(confetti)
         }
         
-        // 3. Show Alert -> Navigate ONLY when OK is pressed
-        let alert = UIAlertController(title: "Session Complete! 🎉", message: message, preferredStyle: .alert)
+        emitterLayer.emitterCells = [sparkleCell, starCell, butterflyCell] + confettiCells
+        view.layer.addSublayer(emitterLayer)
         
-        alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak self] _ in
+        // Stop emitting after 3 seconds, remove after particles fade
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            emitterLayer.birthRate = 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 6.0) {
+                emitterLayer.removeFromSuperlayer()
+            }
+        }
+    }
+    
+    private func showButterflyCelebrationPopup(points: Int) {
+        // Add to the window so it always appears above all subviews (including rectangularView)
+        guard let windowScene = view.window?.windowScene,
+              let window = windowScene.windows.first(where: { $0.isKeyWindow }) ?? windowScene.windows.first
+        else { return }
+
+        let overlayView = UIView(frame: window.bounds)
+        overlayView.backgroundColor = UIColor.black.withAlphaComponent(0)
+        overlayView.tag = 8888
+        window.addSubview(overlayView)
+        
+        // Card container
+        let cardWidth: CGFloat = min(320, view.bounds.width - 48)
+        let cardHeight: CGFloat = 360
+        let card = UIView(frame: CGRect(x: 0, y: 0, width: cardWidth, height: cardHeight))
+        card.center = overlayView.center
+        card.backgroundColor = UIColor.systemBackground
+        card.layer.cornerRadius = 28
+        card.clipsToBounds = true
+        card.transform = CGAffineTransform(scaleX: 0.5, y: 0.5)
+        card.alpha = 0
+        overlayView.addSubview(card)
+        
+        // Gradient background on card — random color from app palette each time
+        let gradientPairs: [(UIColor, UIColor)] = [
+            (UIColor(red: 0.56, green: 0.27, blue: 0.87, alpha: 1.0), UIColor(red: 0.30, green: 0.15, blue: 0.70, alpha: 1.0)),  // Purple
+            (UIColor(red: 0.10, green: 0.38, blue: 0.82, alpha: 1.0), UIColor(red: 0.08, green: 0.26, blue: 0.62, alpha: 1.0)),  // Blue
+            (UIColor(red: 0.08, green: 0.52, blue: 0.44, alpha: 1.0), UIColor(red: 0.20, green: 0.73, blue: 0.60, alpha: 1.0)),  // Teal
+            (UIColor(red: 0.82, green: 0.32, blue: 0.06, alpha: 1.0), UIColor(red: 1.0,  green: 0.584, blue: 0.0, alpha: 1.0)),  // Orange
+            (UIColor(red: 0.72, green: 0.10, blue: 0.30, alpha: 1.0), UIColor(red: 0.52, green: 0.18, blue: 0.72, alpha: 1.0)),  // Red-Violet
+            (UIColor(red: 0.18, green: 0.52, blue: 0.22, alpha: 1.0), UIColor(red: 0.08, green: 0.52, blue: 0.44, alpha: 1.0)),  // Green-Teal
+            (UIColor(red: 0.08, green: 0.48, blue: 0.70, alpha: 1.0), UIColor(red: 0.10, green: 0.38, blue: 0.82, alpha: 1.0)),  // Ocean Blue
+            (UIColor(red: 0.82, green: 0.48, blue: 0.06, alpha: 1.0), UIColor(red: 0.82, green: 0.32, blue: 0.06, alpha: 1.0)),  // Amber
+            (UIColor(red: 0.36, green: 0.18, blue: 0.72, alpha: 1.0), UIColor(red: 0.52, green: 0.18, blue: 0.72, alpha: 1.0)),  // Deep Purple-Violet
+        ]
+        let chosenPair = gradientPairs.randomElement()!
+        
+        let gradient = CAGradientLayer()
+        gradient.colors = [chosenPair.0.cgColor, chosenPair.1.cgColor]
+        gradient.startPoint = CGPoint(x: 0, y: 0)
+        gradient.endPoint = CGPoint(x: 1, y: 1)
+        gradient.frame = card.bounds
+        card.layer.insertSublayer(gradient, at: 0)
+        
+        // Butterfly emoji
+        let butterflyLabel = UILabel()
+        butterflyLabel.text = "🦋"
+        butterflyLabel.font = .systemFont(ofSize: 72)
+        butterflyLabel.textAlignment = .center
+        butterflyLabel.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(butterflyLabel)
+        
+        // Title
+        let titleLabel = UILabel()
+        titleLabel.text = "Butterfly Grown!"
+        titleLabel.font = .systemFont(ofSize: 26, weight: .heavy)
+        titleLabel.textColor = .white
+        titleLabel.textAlignment = .center
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(titleLabel)
+        
+        // Message
+        let msgLabel = UILabel()
+        msgLabel.text = "Congratulations! You've completed all 4 stages and grown a beautiful butterfly!\n\n+\(points) Points Earned 🏆"
+        msgLabel.font = .systemFont(ofSize: 15, weight: .medium)
+        msgLabel.textColor = UIColor.white.withAlphaComponent(0.9)
+        msgLabel.textAlignment = .center
+        msgLabel.numberOfLines = 0
+        msgLabel.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(msgLabel)
+        
+        // Continue button
+        let continueBtn = UIButton(type: .system)
+        continueBtn.setTitle("Continue", for: .normal)
+        continueBtn.titleLabel?.font = .systemFont(ofSize: 18, weight: .bold)
+        continueBtn.setTitleColor(chosenPair.0, for: .normal)
+        continueBtn.backgroundColor = .white
+        continueBtn.layer.cornerRadius = 16
+        continueBtn.translatesAutoresizingMaskIntoConstraints = false
+        continueBtn.addTarget(self, action: #selector(dismissButterflyPopup), for: .touchUpInside)
+        card.addSubview(continueBtn)
+        
+        NSLayoutConstraint.activate([
+            butterflyLabel.topAnchor.constraint(equalTo: card.topAnchor, constant: 28),
+            butterflyLabel.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+            
+            titleLabel.topAnchor.constraint(equalTo: butterflyLabel.bottomAnchor, constant: 12),
+            titleLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+            titleLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+            
+            msgLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 12),
+            msgLabel.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 24),
+            msgLabel.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -24),
+            
+            continueBtn.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -24),
+            continueBtn.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+            continueBtn.widthAnchor.constraint(equalToConstant: 200),
+            continueBtn.heightAnchor.constraint(equalToConstant: 50),
+        ])
+        
+        // Animate in
+        UIView.animate(withDuration: 0.5, delay: 0, usingSpringWithDamping: 0.7, initialSpringVelocity: 0.8, options: []) {
+            overlayView.backgroundColor = UIColor.black.withAlphaComponent(0.5)
+            card.transform = .identity
+            card.alpha = 1
+        }
+        
+        // Gentle floating animation on butterfly emoji
+        UIView.animate(withDuration: 1.5, delay: 0.5, options: [.repeat, .autoreverse, .allowUserInteraction]) {
+            butterflyLabel.transform = CGAffineTransform(translationX: 0, y: -10)
+        }
+    }
+    
+    @objc private func dismissButterflyPopup() {
+        // Find overlay in window (where we added it)
+        let window = view.window ?? UIApplication.shared.windows.first
+        guard let overlay = window?.viewWithTag(8888) else {
+            navigateToMoodScreen()
+            return
+        }
+        UIView.animate(withDuration: 0.3, animations: {
+            overlay.alpha = 0
+            overlay.subviews.first?.transform = CGAffineTransform(scaleX: 0.8, y: 0.8)
+        }) { [weak self] _ in
+            overlay.removeFromSuperview()
             self?.navigateToMoodScreen()
-        })
-        
-        present(alert, animated: true)
+        }
     }
     
     // MARK: - Breathing Animation Methods
@@ -873,7 +1251,7 @@ class BreathingViewController: UIViewController {
                 animationView.layer.addSublayer(flowerContainer)
                 self.breathingFlowerLayer = flowerContainer
 
-                // Removed 6 petals arranged around the center
+
 
                 // Centre orb of the flower
                 let orbL = CAShapeLayer()
@@ -1268,6 +1646,9 @@ class BreathingViewController: UIViewController {
             if type == "fingerrhythm" || type == "shoulderdrop" {
                 label.alpha = 0
             }
+            
+            // Reveal immediately after setup since transition has finished
+            self.showInitialStartPrompt()
         }
     }
     

@@ -98,8 +98,6 @@ class MindfulnessBadgeView: UIView {
     private let iconImageView  = UIImageView()
     private let countLabel     = UILabel()
     private let sessLabel      = UILabel()
-    private let tierLabel      = UILabel()
-    private let waveStack      = UIStackView()
 
     private var tier: MindfulnessTier = .double
 
@@ -157,19 +155,6 @@ class MindfulnessBadgeView: UIView {
         sessLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(sessLabel)
 
-        tierLabel.textAlignment = .center
-        tierLabel.font          = .systemFont(ofSize: 8, weight: .heavy)
-        tierLabel.textColor     = UIColor.white.withAlphaComponent(0.85)
-        tierLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(tierLabel)
-
-        waveStack.axis         = .horizontal
-        waveStack.spacing      = 4
-        waveStack.alignment    = .center
-        waveStack.distribution = .fillEqually
-        waveStack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(waveStack)
-
         NSLayoutConstraint.activate([
             iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
             iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -22),
@@ -180,14 +165,7 @@ class MindfulnessBadgeView: UIView {
             countLabel.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: 2),
 
             sessLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            sessLabel.topAnchor.constraint(equalTo: countLabel.bottomAnchor, constant: 0),
-
-            tierLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            tierLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18),
-
-            waveStack.centerXAnchor.constraint(equalTo: centerXAnchor),
-            waveStack.bottomAnchor.constraint(equalTo: tierLabel.topAnchor, constant: -4),
-            waveStack.heightAnchor.constraint(equalToConstant: 12)
+            sessLabel.topAnchor.constraint(equalTo: countLabel.bottomAnchor, constant: 0)
         ])
     }
 
@@ -254,8 +232,6 @@ class MindfulnessBadgeView: UIView {
             countLabel.text            = "\(tier.sessionCount)"
             countLabel.textColor       = .systemGray
             sessLabel.textColor        = .systemGray2
-            tierLabel.text             = tier.label
-            tierLabel.textColor        = .systemGray2
         } else {
             gradientLayer.colors       = tier.gradientColors
             outerRingLayer.strokeColor = tier.ringColor.cgColor
@@ -265,29 +241,11 @@ class MindfulnessBadgeView: UIView {
             countLabel.text            = "\(tier.sessionCount)"
             countLabel.textColor       = .white
             sessLabel.textColor        = UIColor.white.withAlphaComponent(0.85)
-            tierLabel.text             = tier.label
-            tierLabel.textColor        = UIColor.white.withAlphaComponent(0.90)
             pulseGlow()
             addShimmer()
         }
 
-        buildWaves(count: tier.sessionCount, isLocked: isLocked)
         setNeedsLayout(); layoutIfNeeded()
-    }
-
-    private func buildWaves(count: Int, isLocked: Bool) {
-        waveStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        let color: UIColor = isLocked ? .systemGray3 : .white
-        let heights: [CGFloat] = [6, 10, 8, 12, 7]
-        for i in 0..<count {
-            let bar = UIView()
-            let h = heights[i % heights.count]
-            bar.backgroundColor = color.withAlphaComponent(i < count ? 1.0 : 0.25)
-            bar.layer.cornerRadius = 2
-            bar.widthAnchor.constraint(equalToConstant: 4).isActive = true
-            bar.heightAnchor.constraint(equalToConstant: h).isActive = true
-            waveStack.addArrangedSubview(bar)
-        }
     }
 
     private func pulseGlow() {

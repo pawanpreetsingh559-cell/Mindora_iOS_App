@@ -1,14 +1,9 @@
-//
-//  EditProfileViewController.swift
-//  Mindora
-//
-
 import UIKit
 import PhotosUI
 
 // Delegate so ProfileViewController refreshes after save
 protocol EditProfileDelegate: AnyObject {
-    func didUpdateProfile()
+    func didUpdateProfile(photoRemoved: Bool)
 }
 
 class EditProfileViewController: UIViewController {
@@ -24,6 +19,7 @@ class EditProfileViewController: UIViewController {
     // MARK: - Properties
     weak var delegate: EditProfileDelegate?
     private var selectedImage: UIImage?
+    private var photoShouldBeDeleted = false  // set when Remove Photo is tapped, executed on Save
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -36,7 +32,7 @@ class EditProfileViewController: UIViewController {
     private func setupUI() {
         view.backgroundColor = UIColor(red: 0.973, green: 0.961, blue: 0.933, alpha: 1.0)
 
-        // Avatar
+        // Avatar — tapping it opens the same sheet as the button
         avatarImageView.contentMode = .scaleAspectFill
         avatarImageView.clipsToBounds = true
         avatarImageView.layer.cornerRadius = 55
@@ -49,6 +45,9 @@ class EditProfileViewController: UIViewController {
         avatarImageView.backgroundColor = UIColor(red: 0.2, green: 0.6, blue: 1.0, alpha: 1.0)
         avatarImageView.image = UIImage(systemName: "person.fill")
         avatarImageView.tintColor = .white
+        avatarImageView.isUserInteractionEnabled = true
+        let avatarTap = UITapGestureRecognizer(target: self, action: #selector(showPhotoOptions))
+        avatarImageView.addGestureRecognizer(avatarTap)
 
         // Name field
         nameTextField.borderStyle = .none
@@ -62,6 +61,7 @@ class EditProfileViewController: UIViewController {
         nameTextField.textColor = UIColor(red: 0.15, green: 0.15, blue: 0.15, alpha: 1)
         nameTextField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 16, height: 1))
         nameTextField.leftViewMode = .always
+        nameTextField.tintColor = .black
         nameTextField.returnKeyType = .done
         nameTextField.delegate = self
         nameTextField.autocorrectionType = .no
@@ -102,70 +102,74 @@ class EditProfileViewController: UIViewController {
         
         // Load photo from Supabase asynchronously
         DataManager.shared.loadProfilePhoto { [weak self] photo in
+            guard let self = self else { return }
+            // Don't overwrite if user already removed or replaced the photo
+            guard !self.photoShouldBeDeleted, self.selectedImage == nil else { return }
             if let photo = photo {
-                self?.avatarImageView.image = photo
-                self?.avatarImageView.tintColor = nil
-                self?.removePhotoButton.isHidden = false
+                self.avatarImageView.image = photo
+                self.avatarImageView.tintColor = nil
+                self.removePhotoButton.isHidden = false
             }
         }
     }
 
     private func setInitialsAvatar(name: String) {
-        let initials = name.components(separatedBy: " ")
-            .compactMap { $0.first.map { String($0) } }
-            .prefix(2)
-            .joined()
-            .uppercased()
-
         let size = CGSize(width: 110, height: 110)
-        UIGraphicsBeginImageContextWithOptions(size, false, 0)
-        let ctx = UIGraphicsGetCurrentContext()!
-        let colors = [
-            UIColor(red: 0.2, green: 0.6, blue: 1.0, alpha: 1.0),
-            UIColor(red: 0.4, green: 0.3, blue: 0.9, alpha: 1.0)
-        ]
-        let gradient = CGGradient(
-            colorsSpace: CGColorSpaceCreateDeviceRGB(),
-            colors: colors.map { $0.cgColor } as CFArray,
-            locations: [0, 1]
-        )!
-        ctx.drawLinearGradient(gradient,
-                               start: CGPoint(x: 0, y: 0),
-                               end: CGPoint(x: size.width, y: size.height),
-                               options: [])
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: 40, weight: .bold),
-            .foregroundColor: UIColor.white
-        ]
-        let str = initials as NSString
-        let strSize = str.size(withAttributes: attrs)
-        str.draw(at: CGPoint(x: (size.width - strSize.width) / 2,
-                             y: (size.height - strSize.height) / 2),
-                 withAttributes: attrs)
-        let img = UIGraphicsGetImageFromCurrentImageContext()
-        UIGraphicsEndImageContext()
-        avatarImageView.image = img
+        avatarImageView.image = DataManager.shared.generateInitialsImage(name: name, size: size)
         avatarImageView.tintColor = nil
     }
 
     // MARK: - Actions
     @IBAction func changePhotoTapped(_ sender: UIButton) {
-        let sheet = UIAlertController(title: nil, message: nil, preferredStyle: .actionSheet)
+        showPhotoOptions()
+    }
+
+    @objc private func showPhotoOptions() {
+        let sheet = UIAlertController(title: "Profile Avatar", message: "Customize your avatar style", preferredStyle: .actionSheet)
         sheet.addAction(UIAlertAction(title: "Choose from Library", style: .default) { [weak self] _ in
             self?.presentPhotoPicker()
         })
-        sheet.addAction(UIAlertAction(title: "Take Photo", style: .default) { [weak self] _ in
-            self?.presentCamera()
+        sheet.addAction(UIAlertAction(title: "Customize Initial", style: .default) { [weak self] _ in
+            self?.showCustomizeInitialSheet()
         })
         sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
         if let popover = sheet.popoverPresentationController {
-            popover.sourceView = sender
+            popover.sourceView = avatarImageView
         }
         present(sheet, animated: true)
     }
+    
+    private func showCustomizeInitialSheet() {
+        let currentName = nameTextField.text?.trimmingCharacters(in: .whitespaces)
+        let name = (currentName?.isEmpty == false) ? currentName! : "Guest"
+        let vc = CustomizeInitialViewController(name: name)
+        vc.onApply = { [weak self] themeIndex in
+            DataManager.shared.setAvatarTheme(themeIndex)
+            self?.removePhotoAndShowInitials()
+        }
+        vc.modalPresentationStyle = .pageSheet
+        if let sheet = vc.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 24
+        }
+        present(vc, animated: true)
+    }
+    
+    private func removePhotoAndShowInitials() {
+        photoShouldBeDeleted = true
+        selectedImage = nil
+        removePhotoButton.isHidden = true
+        if let name = nameTextField.text, !name.isEmpty {
+            setInitialsAvatar(name: name)
+        } else {
+            setInitialsAvatar(name: "Guest")
+        }
+    }
 
-    @IBAction func removePhotoTapped(_ sender: UIButton) {
-        DataManager.shared.deleteProfilePhoto()
+    // Called from both the Remove Photo button and the action sheet option
+    private func removePhoto() {
+        photoShouldBeDeleted = true
         selectedImage = nil
         removePhotoButton.isHidden = true
         if let name = nameTextField.text, !name.isEmpty {
@@ -174,6 +178,11 @@ class EditProfileViewController: UIViewController {
             avatarImageView.image = UIImage(systemName: "person.fill")
             avatarImageView.tintColor = .white
         }
+        // Stay on screen — user must press Save Changes to commit
+    }
+
+    @IBAction func removePhotoTapped(_ sender: UIButton) {
+        removePhoto()
     }
 
     @IBAction func saveTapped(_ sender: UIButton) {
@@ -183,25 +192,45 @@ class EditProfileViewController: UIViewController {
             return
         }
 
-        // Animate button
-        UIView.animate(withDuration: 0.1, animations: {
-            sender.transform = CGAffineTransform(scaleX: 0.95, y: 0.95)
-        }) { _ in
-            UIView.animate(withDuration: 0.1) {
-                sender.transform = .identity
+        DataManager.shared.updateUserName(name)
+        sender.isEnabled = false
+        sender.setTitle("", for: .normal)
+
+        let spinner = UIActivityIndicatorView(style: .medium)
+        spinner.color = .white
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        sender.addSubview(spinner)
+        NSLayoutConstraint.activate([
+            spinner.centerXAnchor.constraint(equalTo: sender.centerXAnchor),
+            spinner.centerYAnchor.constraint(equalTo: sender.centerYAnchor),
+        ])
+        spinner.startAnimating()
+
+        let finish = { [weak self] (success: Bool, photoWasRemoved: Bool) in
+            spinner.stopAnimating()
+            spinner.removeFromSuperview()
+            sender.isEnabled = true
+            sender.setTitle("Save Changes", for: .normal)
+            if success {
+                self?.delegate?.didUpdateProfile(photoRemoved: photoWasRemoved)
+                self?.dismiss(animated: true)
+            } else {
+                sender.setTitle("Failed — try again", for: .normal)
+                sender.backgroundColor = UIColor.systemRed
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    sender.setTitle("Save Changes", for: .normal)
+                    sender.backgroundColor = UIColor(red: 0.2, green: 0.6, blue: 1.0, alpha: 1.0)
+                }
             }
         }
 
-        // Save name
-        DataManager.shared.updateUserName(name)
-
-        // Save photo if changed
         if let img = selectedImage {
-            DataManager.shared.saveProfilePhoto(img)
+            DataManager.shared.saveProfilePhoto(img) { success in finish(success, false) }
+        } else if photoShouldBeDeleted {
+            DataManager.shared.deleteProfilePhoto { finish(true, true) }
+        } else {
+            finish(true, false)
         }
-
-        delegate?.didUpdateProfile()
-        dismiss(animated: true)
     }
 
     @IBAction func backTapped(_ sender: UIButton) {

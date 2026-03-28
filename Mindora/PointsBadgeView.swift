@@ -68,34 +68,12 @@ enum PointsTier {
 
     var label: String {
         switch self {
-        case .bronze:   return "BRONZE"
-        case .silver:   return "SILVER"
-        case .gold:     return "GOLD"
-        case .sapphire: return "SAPPHIRE"
-        case .amethyst: return "AMETHYST"
-        case .diamond:  return "DIAMOND"
-        }
-    }
-
-    var gemCount: Int {
-        switch self {
-        case .bronze:   return 1
-        case .silver:   return 2
-        case .gold:     return 3
-        case .sapphire: return 4
-        case .amethyst: return 5
-        case .diamond:  return 6
-        }
-    }
-
-    var gemIcon: String {
-        switch self {
-        case .bronze:   return "circle.fill"
-        case .silver:   return "diamond.fill"
-        case .gold:     return "star.fill"
-        case .sapphire: return "rhombus.fill"
-        case .amethyst: return "hexagon.fill"
-        case .diamond:  return "sparkle"
+        case .bronze:   return "FOUNDATION"
+        case .silver:   return "GROWING"
+        case .gold:     return "ADVANCING"
+        case .sapphire: return "DEDICATED"
+        case .amethyst: return "COMMITTED"
+        case .diamond:  return "MASTERED"
         }
     }
 
@@ -125,7 +103,6 @@ class PointsBadgeView: UIView {
     private let pointsLabel     = UILabel()
     private let ptsWordLabel    = UILabel()
     private let tierLabel       = UILabel()
-    private let gemsStack       = UIStackView()
 
     private var tier: PointsTier = .bronze
 
@@ -196,13 +173,6 @@ class PointsBadgeView: UIView {
         tierLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(tierLabel)
 
-        gemsStack.axis         = .horizontal
-        gemsStack.spacing      = 3
-        gemsStack.alignment    = .center
-        gemsStack.distribution = .fillEqually
-        gemsStack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(gemsStack)
-
         NSLayoutConstraint.activate([
             iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
             iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -20),
@@ -219,10 +189,6 @@ class PointsBadgeView: UIView {
 
             tierLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
             tierLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18),
-
-            gemsStack.centerXAnchor.constraint(equalTo: centerXAnchor),
-            gemsStack.bottomAnchor.constraint(equalTo: tierLabel.topAnchor, constant: -4),
-            gemsStack.heightAnchor.constraint(equalToConstant: 10)
         ])
     }
 
@@ -281,8 +247,10 @@ class PointsBadgeView: UIView {
         return path
     }
 
-    func configure(tier: PointsTier, points: Int, iconName: String, isLocked: Bool) {
+    func configure(tier: PointsTier, points: Int, currentValue: Int, iconName: String, isLocked: Bool) {
         self.tier = tier
+        
+        let percentage = points > 0 ? Int((Float(currentValue) / Float(points)) * 100) : 0
 
         if isLocked {
             gradientLayer.colors       = [UIColor.systemGray4.cgColor, UIColor.systemGray3.cgColor]
@@ -310,22 +278,8 @@ class PointsBadgeView: UIView {
             addShimmerAnimation()
         }
 
-        buildGems(count: tier.gemCount, isLocked: isLocked)
         setNeedsLayout()
         layoutIfNeeded()
-    }
-
-    private func buildGems(count: Int, isLocked: Bool) {
-        gemsStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        let color: UIColor = isLocked ? .systemGray3 : .white
-        for _ in 0..<count {
-            let iv = UIImageView(image: UIImage(systemName: tier.gemIcon))
-            iv.tintColor = color
-            iv.contentMode = .scaleAspectFit
-            iv.widthAnchor.constraint(equalToConstant: 9).isActive = true
-            iv.heightAnchor.constraint(equalToConstant: 9).isActive = true
-            gemsStack.addArrangedSubview(iv)
-        }
     }
 
     private func pulseGlow() {

@@ -16,7 +16,7 @@ class MoodScoreViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
-        setupGestures() // 👈 NEW: Must add gestures manually
+        setupGestures()
     }
     
     func setupUI() {
@@ -40,7 +40,7 @@ class MoodScoreViewController: UIViewController {
             // Create a tap gesture for each view
             let tap = UITapGestureRecognizer(target: self, action: #selector(scoreViewTapped(_:)))
             view?.addGestureRecognizer(tap)
-            view?.isUserInteractionEnabled = true // Crucial for UIViews
+            view?.isUserInteractionEnabled = true
         }
     }
 
@@ -71,7 +71,18 @@ class MoodScoreViewController: UIViewController {
         guard let score = selectedScore else { return }
         DataManager.shared.logMood(score: score)
         
-        // Navigate to Dashboard (Tab Bar Controller)
+        let message = score <= 3 ? "Attend more sessions in order to be calm & relaxed." : "Be consistent in order to be calm & relaxed."
+        let alert = UIAlertController(title: "Your Journey", message: message, preferredStyle: .alert)
+        
+        alert.addAction(UIAlertAction(title: "Continue", style: .default) { [weak self] _ in
+            self?.navigateToDashboard()
+        })
+        
+        present(alert, animated: true)
+    }
+    
+    // Navigate to Dashboard (Tab Bar Controller)
+    private func navigateToDashboard() {
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         if let dashboardTabBar = storyboard.instantiateViewController(withIdentifier: "Dashboard") as? UITabBarController {
             dashboardTabBar.modalPresentationStyle = .fullScreen

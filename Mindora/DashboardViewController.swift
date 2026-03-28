@@ -20,7 +20,7 @@ class DashboardViewController: UIViewController {
     @IBOutlet weak var stageDescriptionLabel: UILabel!
     @IBOutlet weak var myGardenView: UIView!
     @IBOutlet weak var achievementsCardView: UIView!
-    @IBOutlet weak var advancedCalmingCardView: UIView! // Add this new outlet
+    @IBOutlet weak var advancedCalmingCardView: UIView!
     @IBOutlet weak var fireButton: UIButton!
     @IBOutlet weak var streakCountLabel: UILabel!
     
@@ -32,12 +32,31 @@ class DashboardViewController: UIViewController {
         setupMyGardenTapGesture()
         setupAchievementsTapGesture()
         setupAdvancedCalmingTapGesture()
+        addChevron(to: myGardenView)
+        addChevron(to: achievementsCardView)
+        addChevron(to: advancedCalmingCardView)
         
         // Initial Data Load
         updateGreeting()
         updateDailyQuote()
         updateLifecycleStageImage()
         updateStreakBadgeCount()
+        
+        fireButton?.isUserInteractionEnabled = false
+        
+        NotificationCenter.default.addObserver(self, selector: #selector(handleProfileUpdate), name: NSNotification.Name("UserProfileUpdated"), object: nil)
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    @objc private func handleProfileUpdate() {
+        DispatchQueue.main.async {
+            self.updateGreeting()
+            self.updateLifecycleStageImage()
+            self.updateStreakBadgeCount()
+        }
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -51,7 +70,7 @@ class DashboardViewController: UIViewController {
     
     // MARK: - Actions
     @IBAction func fireButtonTapped(_ sender: UIButton) {
-        tabBarController?.selectedIndex = 1
+        // Intentionally disabled — fire/streak button is display-only
     }
     
     @objc func myGardenViewTapped() {
@@ -92,7 +111,21 @@ class DashboardViewController: UIViewController {
     private func setupAdvancedCalmingTapGesture() {
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(advancedCalmingCardViewTapped))
         advancedCalmingCardView?.addGestureRecognizer(tapGesture)
-        advancedCalmingCardView?.isUserInteractionEnabled = true
+    }
+    
+    // MARK: - Chevron Helper
+    private func addChevron(to cardView: UIView?) {
+        guard let cardView = cardView else { return }
+        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.right", withConfiguration: config))
+        chevron.tintColor = UIColor.systemGray3
+        chevron.translatesAutoresizingMaskIntoConstraints = false
+        chevron.setContentHuggingPriority(.required, for: .horizontal)
+        cardView.addSubview(chevron)
+        NSLayoutConstraint.activate([
+            chevron.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
+            chevron.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16)
+        ])
     }
 }
 
@@ -100,19 +133,17 @@ class DashboardViewController: UIViewController {
 extension DashboardViewController {
     
     func updateGreeting() {
-        let hour = Calendar.current.component(.hour, from: Date())
-        let greeting: String
-        
-        switch hour {
-        case 0..<12: greeting = "Good Morning"
-        case 12..<18: greeting = "Good Afternoon"
-        case 18..<21: greeting = "Good Evening"
-        default: greeting = "Good Night"
-        }
-        
         let userName = DataManager.shared.getCurrentUser()?.name ?? ""
         
         // Separate greeting and username into different labels
+        let hour = Calendar.current.component(.hour, from: Date())
+        let greeting: String
+        switch hour {
+        case 5..<12:  greeting = "Good Morning"
+        case 12..<17: greeting = "Good Afternoon"
+        case 17..<21: greeting = "Good Evening"
+        default:      greeting = "Good Night"
+        }
         greetingLabel.text = greeting
         userNameLabel.text = userName.isEmpty ? "Guest" : userName
     }
@@ -131,6 +162,7 @@ extension DashboardViewController {
     
     func updateLifecycleStageImage() {
         let stage = DataManager.shared.getLifecycleStage()
+        let totalSessions = DataManager.shared.getAnalytics().totalSessions
         
         let stageData: (name: String, image: String, desc: String)
         
@@ -143,8 +175,20 @@ extension DashboardViewController {
         }
         
         stageNameLabel.text = stageData.name
-        lifecycleStageImageView.image = UIImage(named: stageData.image)
         stageDescriptionLabel.text = stageData.desc
+        
+        if totalSessions == 0 {
+            // Shadowy/dull effect for the ENTIRE box for brand-new users
+            lifecycleStageImageView.superview?.alpha = 0.45
+            
+            lifecycleStageImageView.image = UIImage(named: stageData.image)?.withRenderingMode(.alwaysTemplate)
+            lifecycleStageImageView.tintColor = .systemGray
+        } else {
+            // Regular colourful appearance
+            lifecycleStageImageView.superview?.alpha = 1.0
+            
+            lifecycleStageImageView.image = UIImage(named: stageData.image)?.withRenderingMode(.alwaysOriginal)
+        }
     }
 }
 

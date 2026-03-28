@@ -331,14 +331,14 @@ class GrowthStageHexagonBadgeView: UIView {
 
         NSLayoutConstraint.activate([
             iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -7),
-            iconImageView.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 0.40),
+            iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -10),
+            iconImageView.widthAnchor.constraint(equalTo: widthAnchor, multiplier: 0.32),
             iconImageView.heightAnchor.constraint(equalTo: iconImageView.widthAnchor),
 
             stageNumLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            stageNumLabel.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: 2),
-            stageNumLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 2),
-            stageNumLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -2)
+            stageNumLabel.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: 1),
+            stageNumLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            stageNumLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6)
         ])
     }
 
@@ -355,7 +355,7 @@ class GrowthStageHexagonBadgeView: UIView {
     private func makeEggPath(in rect: CGRect) -> UIBezierPath {
         let path = UIBezierPath()
         let cx = rect.midX, cy = rect.midY
-        let rx = rect.width / 2 - 2, ry = rect.height / 2 - 2
+        let rx = rect.width / 2 - 4, ry = rect.height / 2 - 4
         path.move(to: CGPoint(x: cx, y: cy - ry))
         path.addCurve(to: CGPoint(x: cx + rx, y: cy),
                       controlPoint1: CGPoint(x: cx + rx * 0.9, y: cy - ry),

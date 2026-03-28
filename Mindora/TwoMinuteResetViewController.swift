@@ -1,10 +1,3 @@
-//
-//  TwoMinuteResetViewController.swift
-//  Mindora final
-//
-//  Created by Navya  on 15/11/25.
-//
-
 import UIKit
 
 class TwoMinuteResetViewController: UIViewController {
@@ -76,12 +69,21 @@ class TwoMinuteResetViewController: UIViewController {
     
     // MARK: - Navigation
     private func navigateToBreathing(name: String, type: String) {
+        // Guard: sessions require Supabase to save progress — block if offline
+        guard NetworkMonitor.shared.isConnected else {
+            showNoInternetAlert()
+            return
+        }
+
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         if let breathingVC = storyboard.instantiateViewController(withIdentifier: "breathingVC") as? BreathingViewController {
             breathingVC.activityName = name
             breathingVC.exerciseType = type
             
             if let navigationController = self.navigationController {
+                // Set this controller as delegate to handle custom transitions
+                navigationController.delegate = self
+                // Push without default animation - custom animation will handle it
                 navigationController.pushViewController(breathingVC, animated: true)
             } else {
                 breathingVC.modalPresentationStyle = .fullScreen
@@ -90,3 +92,66 @@ class TwoMinuteResetViewController: UIViewController {
         }
     }
 }
+
+// MARK: - UINavigationControllerDelegate for smooth transition
+extension TwoMinuteResetViewController: UINavigationControllerDelegate {
+    
+    func navigationController(
+        _ navigationController: UINavigationController,
+        animationControllerFor operation: UINavigationController.Operation,
+        from fromVC: UIViewController,
+        to toVC: UIViewController
+    ) -> UIViewControllerAnimatedTransitioning? {
+        
+        // Only apply custom animation when pushing to BreathingViewController
+        if operation == .push && toVC is BreathingViewController {
+            return SmoothPushTransition()
+        }
+        
+        return nil
+    }
+}
+
+// MARK: - Custom Transition Animator
+class SmoothPushTransition: NSObject, UIViewControllerAnimatedTransitioning {
+    
+    let duration: TimeInterval = 0.3
+    
+    func transitionDuration(using transitionContext: UIViewControllerContextTransitioning?) -> TimeInterval {
+        return duration
+    }
+    
+    func animateTransition(using transitionContext: UIViewControllerContextTransitioning) {
+        guard let toViewController = transitionContext.viewController(forKey: .to) else {
+            transitionContext.completeTransition(false)
+            return
+        }
+        
+        let container = transitionContext.containerView
+        let finalFrame = transitionContext.finalFrame(for: toViewController)
+        
+        // Start from off-screen (right side)
+        toViewController.view.frame = CGRect(
+            x: container.bounds.width,
+            y: 0,
+            width: container.bounds.width,
+            height: container.bounds.height
+        )
+        
+        container.addSubview(toViewController.view)
+        
+        // Animate with spring for snappy natural feel
+        UIView.animate(
+            withDuration: duration,
+            delay: 0,
+            options: .curveEaseOut,
+            animations: {
+                toViewController.view.frame = finalFrame
+            },
+            completion: { finished in
+                transitionContext.completeTransition(!transitionContext.transitionWasCancelled)
+            }
+        )
+    }
+}
+

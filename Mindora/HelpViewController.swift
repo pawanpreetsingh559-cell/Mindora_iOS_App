@@ -16,45 +16,38 @@ class HelpViewController: UIViewController {
     // MARK: - IBOutlets
     @IBOutlet weak var tableView: UITableView!
 
-    // MARK: - Properties
     private var sections: [FAQSection] = [
         FAQSection(title: "Getting Started", items: [
             FAQItem(question: "What is Mindora?",
-                    answer: "Mindora is a mental wellness app designed to help you track your mood, build mindfulness habits, and grow through daily reflection. Think of it as your personal mental health companion."),
-            FAQItem(question: "How do I log my mood?",
-                    answer: "Tap the Home tab and use the mood check-in card. Select how you're feeling on a scale of 1–5 and optionally add a note. Your entries are saved automatically."),
+                    answer: "Mindora is your personal mental wellness companion. It helps you build mindfulness habits through breathing exercises, mood tracking, and a dynamic 3D AR Garden that grows with your progress."),
             FAQItem(question: "Is my data private?",
-                    answer: "Yes. All your data is stored locally on your device. We do not share or sell your personal information. See our Privacy Policy for full details.")
+                    answer: "Yes, absolutely. All your data is securely stored and synced to your personal cloud account. See our Privacy Policy for full details.")
         ]),
-        FAQSection(title: "Mood Tracking", items: [
-            FAQItem(question: "How often should I log my mood?",
-                    answer: "We recommend logging once a day, ideally at the same time each day. Consistency helps you spot patterns and trends in your emotional wellbeing."),
-            FAQItem(question: "Can I edit a past mood entry?",
-                    answer: "Currently, mood entries are saved as-is. We are working on an edit feature for a future update."),
-            FAQItem(question: "What do the mood scores mean?",
-                    answer: "Scores range from 1 (very low) to 5 (very high). 1–2 indicates a difficult day, 3 is neutral, and 4–5 represents a positive, energised state.")
+        FAQSection(title: "Mindfulness & Mood", items: [
+            FAQItem(question: "How do the breathing sessions work?",
+                    answer: "We offer tailored exercises like the 2-Minute Reset and Advanced Calming. Just follow the visual cues. If you receive a phone call, your session will automatically pause and resume when you're done."),
+            FAQItem(question: "How do I log my mood?",
+                    answer: "After completing a session, or via the dashboard, you can log your mood on a scale from 1 (very low) to 5 (energized). Tracking this daily helps you spot patterns over time.")
         ]),
-        FAQSection(title: "Achievements", items: [
-            FAQItem(question: "How do I earn achievements?",
-                    answer: "Achievements are unlocked automatically as you use the app — logging moods, completing breathing exercises, maintaining streaks, and exploring features all earn you points and badges."),
+        FAQSection(title: "Achievements & Growth", items: [
             FAQItem(question: "What are growth stages?",
-                    answer: "Growth stages (Egg → Caterpillar → Cocoon → Butterfly) represent your overall progress in the app. Each stage requires more points to reach, encouraging consistent engagement."),
-            FAQItem(question: "Do achievements reset?",
-                    answer: "No. Once an achievement is unlocked, it stays unlocked permanently.")
+                    answer: "As you continue your wellness journey, you will progress through natural life stages: Egg → Caterpillar → Cocoon → Butterfly. Consistent use naturally shapes your evolution."),
+            FAQItem(question: "How do I earn badges?",
+                    answer: "You unlock achievements automatically by using the app — completing sessions, logging moods, maintaining streaks, and collecting points. Check your milestones on the Achievements page.")
         ]),
-        FAQSection(title: "Garden", items: [
-            FAQItem(question: "How does the Garden work?",
-                    answer: "Your Garden fills with butterflies as you earn them through consistent use. Collect 10 butterflies to complete your garden and start a new cycle."),
-            FAQItem(question: "What are butterflies?",
-                    answer: "Butterflies are rewards earned by completing daily check-ins and activities. They represent your growth and consistency over time.")
+        FAQSection(title: "Your AR Garden", items: [
+            FAQItem(question: "What is the 3D Garden?",
+                    answer: "The Garden is a beautiful AR sanctuary reflecting your inner calm. By dedicating time to yourself and earning butterflies, your garden becomes more vibrant and alive."),
+            FAQItem(question: "How do I interact with the AR Garden?",
+                    answer: "In the AR view, you can use pinch-to-zoom to resize your garden and use two-finger rotation to view it from any angle in your physical space.")
         ]),
-        FAQSection(title: "Technical", items: [
-            FAQItem(question: "Does Mindora work offline?",
-                    answer: "Yes! Mindora works fully offline. All data is stored on your device, so you can use it anywhere without an internet connection."),
-            FAQItem(question: "How do I reset the app?",
-                    answer: "You can log out from the Profile tab. To fully reset all data, delete and reinstall the app. Note: this action is irreversible."),
+        FAQSection(title: "Profile & Support", items: [
+            FAQItem(question: "How do I customize my profile?",
+                    answer: "Tap your avatar on the Edit Profile page. You can customize it with a personal photo or select one of our curated themes."),
+            FAQItem(question: "How do I delete my account?",
+                    answer: "Go to the Profile tab and tap 'Delete Account'. This will permanently wipe all your data (analytics, garden progress, profile) from our servers irreversibly."),
             FAQItem(question: "How do I contact support?",
-                    answer: "You can reach us at support@mindora.app. We aim to respond within 2 business days.")
+                    answer: "We're here to help! Reach out to us anytime at mindora.icodesquad@gmail.com")
         ])
     ]
 

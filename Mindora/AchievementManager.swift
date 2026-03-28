@@ -5,10 +5,14 @@ import Supabase
 class AchievementManager {
     static let shared = AchievementManager()
 
-    // MARK: - Achievements List (in-memory only, synced to Supabase)
-    var achievements: [Achievement] = [] {
-        didSet { syncAchievementsToSupabase() }
-    }
+    // MARK: - Achievements List
+    var achievements: [Achievement] = []
+
+    // Debounce timer — coalesces rapid progress updates into one Supabase sync
+    private var syncDebounceTimer: Timer?
+    
+    // Safety flag to prevent overwriting DB before initial fetch completes
+    private var hasFetchedFromSupabase: Bool = false
 
     // MARK: - Init
     private init() {
@@ -25,12 +29,18 @@ class AchievementManager {
         achievements[index].currentValue = achievements[index].requiredValue
         achievements[index].dateUnlocked = Date()
         NotificationCenter.default.post(name: .achievementUnlocked, object: achievements[index])
+        scheduleSyncDebounced()
     }
 
     /// Update the current progress value for an achievement (does NOT auto-unlock).
     func setProgress(id: String, value: Int) {
         guard let index = achievements.firstIndex(where: { $0.id == id }) else { return }
-        achievements[index].currentValue = value
+        if achievements[index].isUnlocked {
+            achievements[index].currentValue = max(achievements[index].requiredValue, value)
+        } else {
+            achievements[index].currentValue = value
+        }
+        scheduleSyncDebounced()
     }
 
     /// Lock an achievement again (e.g. for testing/reset).
@@ -39,11 +49,24 @@ class AchievementManager {
         achievements[index].isUnlocked = false
         achievements[index].currentValue = 0
         achievements[index].dateUnlocked = nil
+        scheduleSyncDebounced()
     }
 
     /// Reset all achievements to their default locked state.
     func resetAll() {
         achievements = defaultAchievements()
+        scheduleSyncDebounced()
+    }
+
+    // MARK: - Debounced Sync
+
+    /// Schedules a Supabase sync 1 second after the last mutation.
+    /// All rapid progress updates (e.g. from syncAchievements) are collapsed into one write.
+    private func scheduleSyncDebounced() {
+        syncDebounceTimer?.invalidate()
+        syncDebounceTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: false) { [weak self] _ in
+            self?.syncAchievementsToSupabase()
+        }
     }
 
     // MARK: - Load (Supabase then defaults)
@@ -86,25 +109,47 @@ class AchievementManager {
                     
                     for (i, item) in list.enumerated() {
                         if let saved = savedMap[item.id] {
-                            list[i].isUnlocked = saved.is_unlocked
-                            list[i].currentValue = saved.current_value
+                            // Safely merge: if unlocked locally during the network call, keep it unlocked
+                            list[i].isUnlocked = saved.is_unlocked || self.achievements[i].isUnlocked
+                            list[i].currentValue = max(saved.current_value, self.achievements[i].currentValue)
+                            
                             if let dateStr = saved.date_unlocked {
-                                list[i].dateUnlocked = dateFormatter.date(from: dateStr)
+                                list[i].dateUnlocked = dateFormatter.date(from: dateStr) ?? self.achievements[i].dateUnlocked
+                            } else {
+                                list[i].dateUnlocked = self.achievements[i].dateUnlocked
                             }
+                        } else {
+                            // If missing from DB, preserve whatever local progress happened
+                            list[i].isUnlocked = self.achievements[i].isUnlocked
+                            list[i].currentValue = self.achievements[i].currentValue
+                            list[i].dateUnlocked = self.achievements[i].dateUnlocked
                         }
                     }
+                    
                     
                     await MainActor.run {
                         self.achievements = list
                     }
                 }
+                
+                // Allow syncing only after the initial fetch is completely resolved
+                await MainActor.run {
+                    self.hasFetchedFromSupabase = true
+                    // Automatically trigger a sync now that we have properly merged states
+                    self.scheduleSyncDebounced()
+                }
             } catch {
                 print("[Supabase] Achievements fetch failed: \(error.localizedDescription)")
+                await MainActor.run {
+                    self.hasFetchedFromSupabase = true // allow sync even if fetch fails to avoid breaking progress completely
+                }
             }
         }
     }
     
     private func syncAchievementsToSupabase() {
+        guard hasFetchedFromSupabase else { return } // Prevent race condition overwriting
+        
         Task {
             do {
                 let session = try await supabase.auth.session
@@ -138,7 +183,7 @@ class AchievementManager {
             // --- Growth (Life Stage Milestones) ---
             Achievement(id: "growth_egg",         title: "First Egg",        description: "You completed your very first session. A tiny egg of potential has appeared in your garden — your journey of transformation begins here. Every great butterfly starts exactly like this.",                                                                    category: .growth, requiredValue: 1,  currentValue: 0, isUnlocked: false),
             Achievement(id: "growth_caterpillar", title: "Caterpillar Born",  description: "You've been showing up consistently. Like a caterpillar beginning its slow, determined crawl, you are building momentum — one session, one breath, one moment at a time.",                                                      category: .growth, requiredValue: 2,  currentValue: 0, isUnlocked: false),
-            Achievement(id: "growth_cocoon",      title: "Into the Cocoon",   description: "You've reached a turning point. Inside the cocoon, the most profound changes happen in silence and stillness — invisible to the world, but deeply real. Your dedication is reshaping you from within.",                                                             category: .growth, requiredValue: 3,  currentValue: 0, isUnlocked: false),
+            Achievement(id: "growth_cocoon",      title: "Into the pupa",   description: "You've reached a turning point. Inside the cocoon, the most profound changes happen in silence and stillness — invisible to the world, but deeply real. Your dedication is reshaping you from within.",                                                             category: .growth, requiredValue: 3,  currentValue: 0, isUnlocked: false),
             Achievement(id: "growth_butterfly",   title: "Butterfly Emerges", description: "You've broken free. What began as a single session has blossomed into a true practice of mindfulness. You are no longer just trying — you are transforming. Spread your wings.",                                                                   category: .growth, requiredValue: 4,  currentValue: 0, isUnlocked: false),
 
             // --- Streak ---

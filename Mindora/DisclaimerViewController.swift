@@ -28,14 +28,14 @@ class DisclaimerViewController: UIViewController {
         let warningCard = makeWarningBanner()
 
         let sections: [(String, String)] = [
-            ("1. Not a Medical Service", "Mindora is a personal wellness and self-reflection tool. It is not a medical device, clinical service, or substitute for professional mental health care.\n\nThe app does not diagnose, treat, cure, or prevent any mental health condition or illness."),
-            ("2. Not a Crisis Service", "Mindora is not designed for use in mental health emergencies. If you are experiencing a mental health crisis, thoughts of self-harm, or are in immediate danger, please contact emergency services or a crisis helpline immediately.\n\n🇮🇳 India: iCall – 9152987821\n🌍 International: findahelpline.com"),
-            ("3. App Purpose", "Mindora is intended to support general emotional awareness and wellbeing through:\n\n• Mood journaling and self-reflection\n• Guided breathing exercises\n• Habit tracking and gamification\n\nThese tools are complementary to — not a replacement for — professional mental health support."),
-            ("4. Accuracy of Information", "While we strive to provide accurate and helpful content, Mindora makes no warranties regarding the completeness, reliability, or accuracy of any information within the app.\n\nContent within the app is for general informational purposes only."),
-            ("5. Limitation of Liability", "To the fullest extent permitted by law, Mindora and its developers shall not be liable for any direct, indirect, incidental, or consequential damages arising from your use of the app or reliance on its content.\n\nYour use of Mindora is entirely at your own discretion and risk."),
-            ("6. User Responsibility", "You are solely responsible for how you use the information and features within Mindora. We encourage you to:\n\n• Seek professional help when needed\n• Use the app as a supplement to, not a replacement for, professional care\n• Consult a qualified healthcare provider for any mental health concerns"),
+            ("1. Not a Medical Device", "Mindora is a personal wellness, self-reflection, and mindfulness tool. It is not a medical device, clinical service, or substitute for professional medical or mental health care.\n\nThe app does not diagnose, treat, cure, or prevent any physical or mental condition."),
+            ("2. Seek Professional Advice", "Always seek the advice of a physician, therapist, or other qualified health provider with any questions you may have regarding a medical or mental health condition before making any health-related decisions."),
+            ("3. Not a Crisis Service", "Mindora is not designed for use in mental health emergencies. If you are experiencing a mental health crisis, thoughts of self-harm, or are in immediate danger, please contact emergency services or a crisis helpline immediately.\n\nFor support, reach us at: mindora.icodesquad@gmail.com"),
+            ("4. App Purpose", "Mindora is intended to support emotional awareness and general wellbeing through mood journaling, breathing sessions, and interactive AR mindfulness spaces. These tools are strictly complementary to — not a replacement for — professional mental health support."),
+            ("5. Accuracy & Reliance", "While we strive to provide helpful mindfulness content, Mindora makes no warranties regarding the clinical validity, reliability, or accuracy of any information within the app. Content is for general informational purposes only."),
+            ("6. Limitation of Liability", "To the fullest extent permitted by law, Mindora and its developers shall not be liable for any direct, indirect, incidental, or consequential damages arising from your use of the app or reliance on its content. Your use of Mindora is entirely at your own discretion and risk."),
             ("7. Changes to This Disclaimer", "We reserve the right to update this Disclaimer at any time. Changes will be reflected in the app with an updated date. Continued use of the app constitutes acceptance of the revised Disclaimer."),
-            ("8. Contact", "For questions about this Disclaimer:\n\nEmail: legal@mindora.app\nWebsite: www.mindora.app")
+            ("8. Contact", "For questions about this Disclaimer, please reach out to us at:\n\nmindora.icodesquad@gmail.com")
         ]
 
         let mainStack = UIStackView()
@@ -44,7 +44,7 @@ class DisclaimerViewController: UIViewController {
 
         // Page title
         let titleLbl = makeLabel("Disclaimer", font: .systemFont(ofSize: 28, weight: .bold), color: .label)
-        let dateLbl = makeLabel("Last updated: February 2026", font: .systemFont(ofSize: 14, weight: .regular), color: .secondaryLabel)
+        let dateLbl = makeLabel("Last updated: March 2026", font: .systemFont(ofSize: 14, weight: .regular), color: .secondaryLabel)
         mainStack.addArrangedSubview(titleLbl)
         mainStack.addArrangedSubview(dateLbl)
         mainStack.setCustomSpacing(4, after: titleLbl)

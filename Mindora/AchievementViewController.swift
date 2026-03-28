@@ -17,7 +17,6 @@ class AchievementViewController: UIViewController {
     // Programmatic circle badge label (unlocked count)
     private var circleUnlockLabel: UILabel?
 
-    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         DataManager.shared.syncAchievementsNow()
@@ -25,22 +24,88 @@ class AchievementViewController: UIViewController {
         // Hide navigation bar entirely
         navigationController?.setNavigationBarHidden(true, animated: false)
         
+        // Re-enable swipe-back gesture even with hidden nav bar
+        navigationController?.interactivePopGestureRecognizer?.isEnabled = true
+        navigationController?.interactivePopGestureRecognizer?.delegate = nil
+        
         // Push content down from the very top of the screen
         additionalSafeAreaInsets = UIEdgeInsets(top: 20, left: 0, bottom: 0, right: 0)
         
         setupCollectionView()
         configureDataSource()
         setupHeaderCard()
+        setupScrollableHeader()
         updateUI()
         
         NotificationCenter.default.addObserver(self, selector: #selector(handleUnlock(_:)), name: .achievementUnlocked, object: nil)
     }
     
+    private func setupScrollableHeader() {
+        // Collect views to sweep into collection view header space
+        let titleLabel = view.subviews.first(where: { $0 is UILabel && ($0 as? UILabel)?.text == "Achievements" })
+        let subLabel = view.subviews.first(where: { $0 is UILabel && ($0 as? UILabel)?.text == "Your milestones & badges" })
+        
+        guard let titleLbl = titleLabel, let subLbl = subLabel, let summaryView = topSummaryContainer else { return }
+        
+        // Find the back button (the only button in the view that isn't deep inside a cell)
+        let backBtn = view.subviews.first(where: { $0 is UIButton })
+        
+        // 1. Remove them from main view, clear their constraints
+        titleLbl.removeFromSuperview()
+        subLbl.removeFromSuperview()
+        summaryView.removeFromSuperview()
+        
+        titleLbl.translatesAutoresizingMaskIntoConstraints = true
+        subLbl.translatesAutoresizingMaskIntoConstraints = true
+        summaryView.translatesAutoresizingMaskIntoConstraints = true
+        
+        // 2. Put them in a container that lives inside the collection view bounds
+        let headerHeight: CGFloat = 240
+        let headerView = UIView(frame: CGRect(x: 0, y: -headerHeight, width: UIScreen.main.bounds.width, height: headerHeight))
+        
+        headerView.addSubview(titleLbl)
+        headerView.addSubview(subLbl)
+        headerView.addSubview(summaryView)
+        
+        // Top to bottom layout
+        titleLbl.frame = CGRect(x: 16, y: 0, width: UIScreen.main.bounds.width - 32, height: 40)
+        subLbl.frame = CGRect(x: 16, y: 44, width: UIScreen.main.bounds.width - 32, height: 22)
+        summaryView.frame = CGRect(x: 16, y: 82, width: UIScreen.main.bounds.width - 32, height: 120)
+        
+        collectionView.addSubview(headerView)
+        
+        // Give the collection view top spacing to show this container
+        collectionView.contentInset = UIEdgeInsets(top: headerHeight, left: 0, bottom: 30, right: 0)
+        collectionView.scrollIndicatorInsets = UIEdgeInsets(top: headerHeight, left: 0, bottom: 0, right: 0)
+        
+        // 3. Expand the collection view upwards so it scrolls under the back button
+        collectionView.removeFromSuperview()
+        view.addSubview(collectionView)
+        view.sendSubviewToBack(collectionView)
+        collectionView.translatesAutoresizingMaskIntoConstraints = false
+        
+        NSLayoutConstraint.activate([
+            collectionView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 60), 
+            collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            collectionView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+    }
+    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: animated)
+        
+        // Snapshot which achievements were already seen BEFORE the sync runs,
+        // so that only achievements unlocked in this sync appear as "new".
+        let userDefaults = UserDefaults.standard
+        let previousUnlockedIds = Set(userDefaults.array(forKey: "seenUnlockedAchievements") as? [String] ?? [])
+        
         DataManager.shared.syncAchievementsNow()
         updateUI()
+        
+        // Check for newly unlocked achievements (using the pre-sync snapshot)
+        checkAndShowNewlyUnlockedAchievements(previouslySeenIds: previousUnlockedIds)
     }
     
     override func viewWillDisappear(_ animated: Bool) {
@@ -61,16 +126,8 @@ class AchievementViewController: UIViewController {
         // Card styling
         card.layer.cornerRadius = 20
         card.clipsToBounds = true
-        
-        let gradient = CAGradientLayer()
-        gradient.colors = [
-            UIColor(red: 0.00, green: 0.533, blue: 1.00, alpha: 1).cgColor,
-            UIColor(red: 0.00, green: 0.533, blue: 1.00, alpha: 1).cgColor
-        ]
-        gradient.startPoint = CGPoint(x: 0, y: 0)
-        gradient.endPoint   = CGPoint(x: 1, y: 1)
-        gradient.frame      = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width - 32, height: 120)
-        card.layer.insertSublayer(gradient, at: 0)
+        card.backgroundColor = UIColor(red: 0.0, green: 0.580, blue: 1.0, alpha: 1.0) // #0094FF
+
         
         // Subtle depth circles
         for (x, y, size, a) in [(CGFloat(240), CGFloat(10), CGFloat(90), CGFloat(0.08)),
@@ -162,7 +219,7 @@ class AchievementViewController: UIViewController {
             let group = NSCollectionLayoutGroup.horizontal(layoutSize: groupSize, subitems: [item])
             
             let section = NSCollectionLayoutSection(group: group)
-            section.contentInsets = NSDirectionalEdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16)
+            section.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 16, bottom: 16, trailing: 16)
             
             let headerSize = NSCollectionLayoutSize(widthDimension: .fractionalWidth(1.0),
                                                     heightDimension: .estimated(44))
@@ -277,6 +334,48 @@ class AchievementViewController: UIViewController {
         }
         
         dataSource.apply(snapshot, animatingDifferences: true)
+    }
+    
+    // MARK: - Newly Unlocked Achievements
+    private func checkAndShowNewlyUnlockedAchievements(previouslySeenIds: Set<String>) {
+        // Get all currently unlocked achievement IDs (post-sync)
+        let currentUnlockedIds = Set(manager.achievements.filter { $0.isUnlocked }.map { $0.id })
+        
+        // Find only the achievements newly unlocked since the last time this screen was shown
+        let newlyUnlockedIds = currentUnlockedIds.subtracting(previouslySeenIds)
+        
+        // Update the seen set so next visit won't re-report these
+        UserDefaults.standard.set(Array(currentUnlockedIds), forKey: "seenUnlockedAchievements")
+        
+        // Show popup only if there are genuinely new achievements this visit
+        if !newlyUnlockedIds.isEmpty {
+            showCongratulationsPopup(count: newlyUnlockedIds.count)
+        }
+    }
+    
+    private func showCongratulationsPopup(count: Int) {
+        let title = "🎉 Congratulations!"
+        let message = "You have unlocked \(count) achievement\(count == 1 ? "" : "s")!\n\nGo to achievement description to see your progress"
+        
+        let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        
+        // Customize appearance
+        alertController.view.tintColor = UIColor(red: 0.0, green: 0.580, blue: 1.0, alpha: 1.0) // #0094FF
+        
+        // Add action button
+        let okAction = UIAlertAction(title: "Continue", style: .default) { _ in
+            // Optional: Dismiss after user taps
+        }
+        alertController.addAction(okAction)
+        
+        // Present with haptic feedback
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+        
+        // Small delay to ensure view is fully loaded
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.present(alertController, animated: true)
+        }
     }
     
     // MARK: - Actions

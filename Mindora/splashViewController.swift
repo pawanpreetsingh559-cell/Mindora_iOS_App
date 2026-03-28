@@ -1,9 +1,3 @@
-//
-//  splashViewController.swift
-//  Mindora final
-//
-//  Created by Navya on 12/12/25.
-//
 import UIKit
 
 class splashViewController: UIViewController {

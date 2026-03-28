@@ -1,10 +1,3 @@
-//
-//  AdvancedCalmingViewController.swift
-//  Mindora
-//
-//  10 science-backed calming techniques — each launches BreathingViewController.
-//
-
 import UIKit
 
 // MARK: - Data model
@@ -27,8 +20,9 @@ class AdvancedCalmingViewController: UIViewController {
             badge: "Stanford Research",
             iconName: "wind",
             exerciseType: "physiologicalSigh",
-            gradient: (UIColor(red:0.22,green:0.60,blue:0.98,alpha:1),
-                       UIColor(red:0.10,green:0.38,blue:0.82,alpha:1))
+            // Mid sky blue
+            gradient: (UIColor(red:0.35,green:0.58,blue:0.88,alpha:1),
+                       UIColor(red:0.23,green:0.43,blue:0.75,alpha:1))
         ),
         CalmingTechnique(
             title: "Coherent Breathing",
@@ -36,8 +30,9 @@ class AdvancedCalmingViewController: UIViewController {
             badge: "HRV Research",
             iconName: "waveform.path.ecg",
             exerciseType: "coherentBreathing",
-            gradient: (UIColor(red:0.22,green:0.78,blue:0.66,alpha:1),
-                       UIColor(red:0.08,green:0.52,blue:0.44,alpha:1))
+            // Mid teal green
+            gradient: (UIColor(red:0.26,green:0.70,blue:0.59,alpha:1),
+                       UIColor(red:0.17,green:0.53,blue:0.45,alpha:1))
         ),
         CalmingTechnique(
             title: "Progressive Muscle Release",
@@ -45,17 +40,19 @@ class AdvancedCalmingViewController: UIViewController {
             badge: "Clinical PMR",
             iconName: "figure.strengthtraining.traditional",
             exerciseType: "progressiveMuscle",
-            gradient: (UIColor(red:0.56,green:0.36,blue:0.96,alpha:1),
-                       UIColor(red:0.36,green:0.18,blue:0.72,alpha:1))
+            // Mid violet purple
+            gradient: (UIColor(red:0.63,green:0.41,blue:0.90,alpha:1),
+                       UIColor(red:0.47,green:0.28,blue:0.76,alpha:1))
         ),
         CalmingTechnique(
-            title: "5-4-3-2-1 Grounding",
-            subtitle: "Anchor your senses to stop anxiety spirals — CBT technique",
-            badge: "CBT-Based",
-            iconName: "hand.raised.fingers.spread",
+            title: "Body Scan Relaxation",
+            subtitle: "Gently scan and release tension from head to toe",
+            badge: "Mindfulness",
+            iconName: "figure.mind.and.body",
             exerciseType: "grounding54321",
-            gradient: (UIColor(red:0.98,green:0.58,blue:0.20,alpha:1),
-                       UIColor(red:0.82,green:0.32,blue:0.06,alpha:1))
+            // Mid warm orange
+            gradient: (UIColor(red:0.91,green:0.56,blue:0.28,alpha:1),
+                       UIColor(red:0.78,green:0.40,blue:0.19,alpha:1))
         ),
         CalmingTechnique(
             title: "Guided Imagery",
@@ -63,8 +60,9 @@ class AdvancedCalmingViewController: UIViewController {
             badge: "Alpha-Wave",
             iconName: "mountain.2",
             exerciseType: "guidedImagery",
-            gradient: (UIColor(red:0.20,green:0.72,blue:0.90,alpha:1),
-                       UIColor(red:0.08,green:0.48,blue:0.70,alpha:1))
+            // Mid cerulean sky
+            gradient: (UIColor(red:0.29,green:0.68,blue:0.85,alpha:1),
+                       UIColor(red:0.19,green:0.51,blue:0.71,alpha:1))
         ),
         CalmingTechnique(
             title: "Box Breathing",
@@ -72,8 +70,9 @@ class AdvancedCalmingViewController: UIViewController {
             badge: "Navy SEALs",
             iconName: "square",
             exerciseType: "boxBreathing",
-            gradient: (UIColor(red:0.18,green:0.48,blue:0.90,alpha:1),
-                       UIColor(red:0.08,green:0.26,blue:0.62,alpha:1))
+            // Mid cornflower indigo
+            gradient: (UIColor(red:0.32,green:0.47,blue:0.83,alpha:1),
+                       UIColor(red:0.21,green:0.34,blue:0.69,alpha:1))
         ),
         CalmingTechnique(
             title: "Heart-Focused Breathing",
@@ -81,8 +80,9 @@ class AdvancedCalmingViewController: UIViewController {
             badge: "HeartMath",
             iconName: "heart.fill",
             exerciseType: "heartBreathing",
-            gradient: (UIColor(red:0.96,green:0.28,blue:0.46,alpha:1),
-                       UIColor(red:0.72,green:0.10,blue:0.30,alpha:1))
+            // Mid rose pink
+            gradient: (UIColor(red:0.88,green:0.33,blue:0.49,alpha:1),
+                       UIColor(red:0.73,green:0.23,blue:0.38,alpha:1))
         ),
     ]
 
@@ -186,16 +186,7 @@ class AdvancedCalmingViewController: UIViewController {
         card.layer.shadowRadius = 12
         card.layer.shadowOffset = CGSize(width: 0, height: 4)
 
-        // Gradient left accent bar
-        let accentBar = UIView()
-        accentBar.translatesAutoresizingMaskIntoConstraints = false
-        let accentGrad = CAGradientLayer()
-        accentGrad.colors = [t.gradient.0.cgColor, t.gradient.1.cgColor]
-        accentGrad.startPoint = CGPoint(x: 0.5, y: 0)
-        accentGrad.endPoint = CGPoint(x: 0.5, y: 1)
-        accentGrad.frame = CGRect(x: 0, y: 0, width: 5, height: 120)
-        accentBar.layer.addSublayer(accentGrad)
-        card.addSubview(accentBar)
+        // (accent bar removed)
 
         // Gradient icon box
         let iconBox = UIView()
@@ -225,15 +216,16 @@ class AdvancedCalmingViewController: UIViewController {
             iconImgView.heightAnchor.constraint(equalToConstant: 28),
         ])
 
-        // Research badge
-        let badgePill = UILabel()
+        // Research badge — compact pill that fits the text snugly
+        let badgePill = PaddedLabel()
         badgePill.translatesAutoresizingMaskIntoConstraints = false
-        badgePill.text = "  \(t.badge)  "
+        badgePill.text = t.badge
         badgePill.font = UIFont.systemFont(ofSize: 10, weight: .bold)
         badgePill.textColor = t.gradient.0
         badgePill.backgroundColor = t.gradient.0.withAlphaComponent(0.12)
-        badgePill.layer.cornerRadius = 8
+        badgePill.layer.cornerRadius = 6
         badgePill.clipsToBounds = true
+        badgePill.textInsets = UIEdgeInsets(top: 3, left: 8, bottom: 3, right: 8)
 
         // Title
         let titleLabel = UILabel()
@@ -267,12 +259,7 @@ class AdvancedCalmingViewController: UIViewController {
         card.addSubview(chevron)
 
         NSLayoutConstraint.activate([
-            accentBar.leadingAnchor.constraint(equalTo: card.leadingAnchor),
-            accentBar.topAnchor.constraint(equalTo: card.topAnchor),
-            accentBar.bottomAnchor.constraint(equalTo: card.bottomAnchor),
-            accentBar.widthAnchor.constraint(equalToConstant: 5),
-
-            iconBox.leadingAnchor.constraint(equalTo: accentBar.trailingAnchor, constant: 12),
+            iconBox.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 14),
             iconBox.centerYAnchor.constraint(equalTo: card.centerYAnchor),
             iconBox.widthAnchor.constraint(equalToConstant: 70),
             iconBox.heightAnchor.constraint(equalToConstant: 70),
@@ -304,6 +291,13 @@ class AdvancedCalmingViewController: UIViewController {
         guard let card = gr.view else { return }
         let idx = card.tag
         guard idx < techniques.count else { return }
+
+        // Guard: sessions require internet to sync progress with Supabase
+        guard NetworkMonitor.shared.isConnected else {
+            showNoInternetAlert()
+            return
+        }
+
         let t = techniques[idx]
 
         // Tap feedback
@@ -324,5 +318,33 @@ class AdvancedCalmingViewController: UIViewController {
         let vc = AdvancedExerciseViewController()
         vc.exercise = ex
         navigationController?.pushViewController(vc, animated: true)
+    }
+}
+
+// MARK: - PaddedLabel
+// UILabel subclass that supports content insets for the badge pill
+final class PaddedLabel: UILabel {
+    var textInsets = UIEdgeInsets.zero {
+        didSet { invalidateIntrinsicContentSize() }
+    }
+
+    override func drawText(in rect: CGRect) {
+        super.drawText(in: rect.inset(by: textInsets))
+    }
+
+    override var intrinsicContentSize: CGSize {
+        let size = super.intrinsicContentSize
+        return CGSize(
+            width:  size.width  + textInsets.left + textInsets.right,
+            height: size.height + textInsets.top  + textInsets.bottom
+        )
+    }
+
+    override func sizeThatFits(_ size: CGSize) -> CGSize {
+        let inner = CGSize(width: size.width  - textInsets.left - textInsets.right,
+                           height: size.height - textInsets.top  - textInsets.bottom)
+        let s = super.sizeThatFits(inner)
+        return CGSize(width:  s.width  + textInsets.left + textInsets.right,
+                      height: s.height + textInsets.top  + textInsets.bottom)
     }
 }

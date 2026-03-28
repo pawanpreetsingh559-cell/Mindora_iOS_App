@@ -1,11 +1,5 @@
-//
-//  GardenViewController.swift
-//  Mindora
-//
-//  Created by Agrim on 18/11/25.
-//
-
 import UIKit
+import CoreHaptics
 
 class GardenViewController: UIViewController {
     
@@ -18,21 +12,114 @@ class GardenViewController: UIViewController {
     
     // Track butterfly views to clean them up on refresh
     private var butterflyViews: [UIImageView] = []
+    private var hapticEngine: CHHapticEngine?
     
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Initial setup
         navigationController?.setNavigationBarHidden(false, animated: false)
+        setupGardenImageView()
         updateGardenState()
+        addARButton()
+        setupHaptics()
+    }
+
+    private func setupHaptics() {
+        guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else { return }
+        hapticEngine = try? CHHapticEngine()
+        try? hapticEngine?.start()
+        hapticEngine?.resetHandler = { [weak self] in
+            try? self?.hapticEngine?.start()
+        }
+    }
+
+    private func playDisturbHaptic() {
+        guard CHHapticEngine.capabilitiesForHardware().supportsHaptics,
+              let engine = hapticEngine else {
+            // Fallback for devices without Core Haptics
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            return
+        }
+        let sharp = CHHapticEvent(
+            eventType: .hapticTransient,
+            parameters: [
+                CHHapticEventParameter(parameterID: .hapticIntensity, value: 1.0),
+                CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.8)
+            ],
+            relativeTime: 0
+        )
+        let soft = CHHapticEvent(
+            eventType: .hapticTransient,
+            parameters: [
+                CHHapticEventParameter(parameterID: .hapticIntensity, value: 0.4),
+                CHHapticEventParameter(parameterID: .hapticSharpness, value: 0.2)
+            ],
+            relativeTime: 0.12
+        )
+        if let pattern = try? CHHapticPattern(events: [sharp, soft], parameters: []),
+           let player = try? engine.makePlayer(with: pattern) {
+            try? player.start(atTime: CHHapticTimeImmediate)
+        }
+    }
+
+    private func setupGardenImageView() {
+        // Remove any storyboard border that causes the visible boundary
+        gardenImageView.layer.borderWidth = 0
+        gardenImageView.layer.borderColor = UIColor.clear.cgColor
+        gardenImageView.clipsToBounds = true
+        // Match corner radius to parent card if it has one
+        if let parent = gardenImageView.superview {
+            gardenImageView.layer.cornerRadius = parent.layer.cornerRadius > 0
+                ? parent.layer.cornerRadius : gardenImageView.layer.cornerRadius
+        }
+        // Remove shadow from imageView itself (shadow should be on the parent card, not the image)
+        gardenImageView.layer.shadowOpacity = 0
+    }
+
+    private func addARButton() {
+        let arButton = UIButton(type: .system)
+        arButton.setTitle("AR Mode", for: .normal)
+        arButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+        arButton.setTitleColor(.white, for: .normal)
+        arButton.backgroundColor = UIColor(red: 0.10, green: 0.50, blue: 0.22, alpha: 1.0)
+        arButton.layer.cornerRadius = 14
+        arButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 16, bottom: 10, right: 16)
+        arButton.layer.shadowColor = UIColor(red: 0.10, green: 0.50, blue: 0.22, alpha: 1.0).cgColor
+        arButton.layer.shadowOpacity = 0.35
+        arButton.layer.shadowRadius = 4
+        arButton.layer.shadowOffset = CGSize(width: 0, height: 2)
+        arButton.translatesAutoresizingMaskIntoConstraints = false
+        arButton.addTarget(self, action: #selector(arButtonTapped), for: .touchUpInside)
+        view.addSubview(arButton)
+
+        NSLayoutConstraint.activate([
+            arButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            // Align with "My Garden" heading — sits ~60pt below safe area top
+            arButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 28),
+        ])
+    }
+
+    @objc private func arButtonTapped() {
+        let arVC = ARGardenViewController()
+        arVC.modalPresentationStyle = .fullScreen
+        present(arVC, animated: true)
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        // Enable swipe-back to dashboard
+        navigationController?.interactivePopGestureRecognizer?.isEnabled = true
+        navigationController?.interactivePopGestureRecognizer?.delegate = self
         // Refresh every time we enter (in case points/time changed)
         updateGardenState()
     }
-    
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        // Restore default delegate so other screens aren't affected
+        navigationController?.interactivePopGestureRecognizer?.delegate = nil
+    }
+
     // AUTOMATICALLY hides tab bar when pushed, shows it when popping back
     override var hidesBottomBarWhenPushed: Bool {
         get { return true }
@@ -42,7 +129,6 @@ class GardenViewController: UIViewController {
     // MARK: - Main Update Logic
     private func updateGardenState() {
         updateTimeOfDay()
-        checkAndResetGardenIfNeeded() // Check logic before drawing
         updateProgressBars()
         spawnButterflies()
     }
@@ -59,8 +145,9 @@ class GardenViewController: UIViewController {
         if isNight {
             sunImageView.image = UIImage(named: "Moon")
             sunImageView.layer.shadowColor = UIColor.systemBlue.cgColor
-            sunImageView.layer.shadowOpacity = 0.6
-            sunImageView.layer.shadowRadius = 20
+            sunImageView.layer.shadowOpacity = 0.2   // was 0.6 — much softer
+            sunImageView.layer.shadowRadius = 35     // was 20 — wider spread = no hard ring
+            sunImageView.layer.shadowOffset = .zero
             animateMoonEffects(view: sunImageView)
         } else {
             sunImageView.image = UIImage(named: "sun")
@@ -80,29 +167,23 @@ class GardenViewController: UIViewController {
         progressView.progressTintColor = .systemBlue
         progressView.trackTintColor = UIColor.systemBlue.withAlphaComponent(0.2)
         
-        // 2. Garden Butterfly Progress (Bottom Bar)
-        // totalButterflies is a lifetime counter — use % 10 for current garden cycle
+        // Garden butterfly progress bar
+        // If the garden is full and user kept it, show 10/10 instead of 0/10
         let totalButterflies = DataManager.shared.getButterflies()
-        let currentCycleCount = totalButterflies % 10
-        let gardenProgress = Float(currentCycleCount) / 10.0
+        let analytics = DataManager.shared.getAnalytics()
+        let gardenIsFull = totalButterflies > 0 && totalButterflies % 10 == 0
+        let displayCount = gardenIsFull && analytics.lastGardenAlertedAt == totalButterflies
+            ? 10 : totalButterflies % 10
+        let gardenProgress = Float(displayCount) / 10.0
         gardenProgressView.setProgress(gardenProgress, animated: true)
         gardenProgressView.progressTintColor = .systemOrange
         gardenProgressView.trackTintColor = UIColor.systemOrange.withAlphaComponent(0.2)
         
-        // 3. Label — show current cycle count
-        let labelText = currentCycleCount == 1 ? "Butterfly" : "Butterflies"
-        butterfliesLabel.text = "\(currentCycleCount) \(labelText)"
+        let labelText = displayCount == 1 ? "Butterfly" : "Butterflies"
+        butterfliesLabel.text = "\(displayCount) \(labelText)"
     }
     
-    private func checkAndResetGardenIfNeeded() {
-        let total = DataManager.shared.getButterflies()
-        
-        if total >= 10 {
-            // Logic handled via Alert callback in spawnButterflies
-        }
-    }
-    
-    // MARK: - Butterfly Spawning (Refined & Slowed)
+
     private func spawnButterflies() {
         // Clear old views
         butterflyViews.forEach { $0.removeFromSuperview() }
@@ -111,43 +192,129 @@ class GardenViewController: UIViewController {
         // totalButterflies is lifetime — current garden shows totalButterflies % 10
         let total = DataManager.shared.getButterflies()
         let currentCycleCount = total % 10
-        let countToDisplay = currentCycleCount
         
-        // Check completion: a multiple of 10 means this cycle just finished
-        if total > 0 && total % 10 == 0 {
+        let analytics = DataManager.shared.getAnalytics()
+        let gardenIsFull = total > 0 && total % 10 == 0
+        
+        // Show the alert only once per milestone
+        if gardenIsFull && analytics.lastGardenAlertedAt != total {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 self.showGardenCompleteAlert()
             }
         }
+        
+        // If the garden is full and user chose Keep Garden, display all 10 butterflies
+        // instead of 0 (which is what % 10 gives for a full garden).
+        let countToDisplay = gardenIsFull && analytics.lastGardenAlertedAt == total ? 10 : currentCycleCount
         
         guard countToDisplay > 0 else { return }
         
         for i in 0..<countToDisplay {
             let butterfly = UIImageView(image: UIImage(named: "Image 12"))
             butterfly.contentMode = .scaleAspectFit
-            
+            butterfly.isUserInteractionEnabled = true
+
             // Vary size slightly for depth perception
             let size: CGFloat
             if i < 4 { size = 40 }       // Bottom (Closer)
             else if i < 7 { size = 35 }  // Middle
             else { size = 30 }           // Top (Farther)
-            
+
             butterfly.frame = CGRect(x: 0, y: 0, width: size, height: size)
-            
+
             gardenImageView.addSubview(butterfly)
             butterflyViews.append(butterfly)
-            
+
+            // Tap to disturb
+            let tap = UITapGestureRecognizer(target: self, action: #selector(butterflyTapped(_:)))
+            butterfly.addGestureRecognizer(tap)
+
             // 1. Get Stratified Position
             let startPoint = getStratifiedPoint(index: i, bounds: gardenImageView.bounds)
             butterfly.center = startPoint
-            
+
             // 2. Animate with Graceful Motion
-            // Stagger start times so they don't all move in sync
             let delay = Double(i) * 0.5
             animateSmartFlight(view: butterfly, start: startPoint, index: i, delay: delay)
         }
     }
     
+    // MARK: - Butterfly Tap (Disturb)
+    @objc private func butterflyTapped(_ gesture: UITapGestureRecognizer) {
+        guard let butterfly = gesture.view as? UIImageView else { return }
+        playDisturbHaptic()
+
+        butterfly.layer.removeAllAnimations()
+        butterfly.isUserInteractionEnabled = false
+
+        // Phase 1: Startled jitter — rapid shake in place (0.25s)
+        let jitter = CAKeyframeAnimation(keyPath: "transform.translation.x")
+        jitter.timingFunction = CAMediaTimingFunction(name: .linear)
+        jitter.duration = 0.25
+        jitter.values = [-6, 6, -5, 5, -4, 4, -2, 2, 0]
+        butterfly.layer.add(jitter, forKey: "jitter")
+
+        let jitterY = CAKeyframeAnimation(keyPath: "transform.translation.y")
+        jitterY.timingFunction = CAMediaTimingFunction(name: .linear)
+        jitterY.duration = 0.25
+        jitterY.values = [-4, 4, -5, 5, -3, 3, -2, 2, 0]
+        butterfly.layer.add(jitterY, forKey: "jitterY")
+
+        // Phase 2: Erratic zig-zag escape after jitter
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            // Pick a random escape direction
+            let escapeX = CGFloat.random(in: -120...120)
+            let escapeY = CGFloat.random(in: -200 ... -80)
+
+            // Zig-zag waypoints: dart left/right while flying away
+            let mid1 = CGAffineTransform(translationX: escapeX * 0.3 + CGFloat.random(in: -60...60),
+                                          y: escapeY * 0.4)
+            let mid2 = CGAffineTransform(translationX: escapeX * 0.6 + CGFloat.random(in: -80...80),
+                                          y: escapeY * 0.7)
+            let final = CGAffineTransform(translationX: escapeX, y: escapeY).scaledBy(x: 0.3, y: 0.3)
+
+            UIView.animateKeyframes(withDuration: 0.7, delay: 0, options: []) {
+                UIView.addKeyframe(withRelativeStartTime: 0, relativeDuration: 0.3) {
+                    butterfly.transform = mid1
+                    butterfly.alpha = 0.9
+                }
+                UIView.addKeyframe(withRelativeStartTime: 0.3, relativeDuration: 0.35) {
+                    butterfly.transform = mid2
+                    butterfly.alpha = 0.5
+                }
+                UIView.addKeyframe(withRelativeStartTime: 0.65, relativeDuration: 0.35) {
+                    butterfly.transform = final
+                    butterfly.alpha = 0
+                }
+            } completion: { _ in
+                butterfly.removeFromSuperview()
+                if let idx = self.butterflyViews.firstIndex(of: butterfly) {
+                    self.butterflyViews.remove(at: idx)
+                }
+                // Respawn after a short pause
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+                    guard let self = self else { return }
+                    let i = self.butterflyViews.count
+                    let newButterfly = UIImageView(image: UIImage(named: "Image 12"))
+                    newButterfly.contentMode = .scaleAspectFit
+                    newButterfly.isUserInteractionEnabled = true
+                    let sz: CGFloat = i < 4 ? 40 : (i < 7 ? 35 : 30)
+                    newButterfly.frame = CGRect(x: 0, y: 0, width: sz, height: sz)
+                    newButterfly.alpha = 0
+                    self.gardenImageView.addSubview(newButterfly)
+                    self.butterflyViews.append(newButterfly)
+                    let tap2 = UITapGestureRecognizer(target: self, action: #selector(self.butterflyTapped(_:)))
+                    newButterfly.addGestureRecognizer(tap2)
+                    let startPt = self.getStratifiedPoint(index: i, bounds: self.gardenImageView.bounds)
+                    newButterfly.center = startPt
+                    UIView.animate(withDuration: 0.4) { newButterfly.alpha = 1 }
+                    self.animateSmartFlight(view: newButterfly, start: startPt, index: i, delay: 0)
+                }
+            }
+        }
+    }
+
+
     // MARK: - Alerts
     private func showGardenCompleteAlert() {
         let alert = UIAlertController(
@@ -160,15 +327,20 @@ class GardenViewController: UIViewController {
             self?.performReset()
         })
         
-        alert.addAction(UIAlertAction(title: "Keep Garden", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Keep Garden", style: .cancel) { _ in
+            // Mark alert as shown so it doesn't re-fire next time the screen opens
+            DataManager.shared.markGardenAlertShown()
+        })
         present(alert, animated: true)
     }
     
     private func performReset() {
+        // Record that we've shown the alert for this butterfly count so it won't repeat.
+        DataManager.shared.markGardenAlertShown()
         // Increment garden count — butterfly count is lifetime and never resets.
         // The garden visually empties because spawnButterflies() uses totalButterflies % 10.
         DataManager.shared.incrementCompletedGardens()
-        updateGardenState() // Refresh UI — garden will now show 0 butterflies (new cycle)
+        updateGardenState()
     }
 }
 
@@ -206,7 +378,7 @@ extension GardenViewController {
         )
     }
     
-    // UPDATED: Slower, Smoother, More Presentable
+
     func animateSmartFlight(view: UIView, start: CGPoint, index: Int, delay: Double) {
         let animation = CAKeyframeAnimation(keyPath: "position")
         let path = UIBezierPath()
@@ -294,13 +466,20 @@ extension GardenViewController {
     }
     
     func animateMoonEffects(view: UIView) {
+        // Slow rotation — full 360° every 60s for a calm dreamy feel
+        let rotation = CABasicAnimation(keyPath: "transform.rotation.z")
+        rotation.toValue = CGFloat.pi * 2
+        rotation.duration = 20
+        rotation.repeatCount = .infinity
+        view.layer.add(rotation, forKey: "moonRotation")
+
         let glow = CABasicAnimation(keyPath: "transform.scale")
         glow.toValue = 1.08
         glow.duration = 4
         glow.autoreverses = true
         glow.repeatCount = .infinity
         view.layer.add(glow, forKey: "moonGlow")
-        
+
         let twinkle = CABasicAnimation(keyPath: "opacity")
         twinkle.fromValue = 0.85
         twinkle.toValue = 1.0
@@ -308,5 +487,13 @@ extension GardenViewController {
         twinkle.autoreverses = true
         twinkle.repeatCount = .infinity
         view.layer.add(twinkle, forKey: "moonTwinkle")
+    }
+}
+
+// MARK: - Swipe-back gesture support
+extension GardenViewController: UIGestureRecognizerDelegate {
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        // Allow swipe-back only when there is a previous screen to pop to
+        return (navigationController?.viewControllers.count ?? 0) > 1
     }
 }

@@ -1,10 +1,3 @@
-//
-//  ProfileViewController.swift
-//  Mindora
-//
-//  Created by Anirudh
-//
-
 import UIKit
 
 class ProfileViewController: UIViewController {
@@ -20,12 +13,71 @@ class ProfileViewController: UIViewController {
     @IBOutlet weak var blueCardView: UIView! // Blue stat card container
     
     // MARK: - Lifecycle
+    private var skipNextPhotoLoad = false  // set true after photo removal to prevent reload
     override func viewDidLoad() {
         super.viewDidLoad()
+        setupFixedHeader()
         setupUI()
         setupBubbleAnimations()
         setupProfileCardTap()
         setupInfoRowTaps()
+    }
+    
+    private func setupFixedHeader() {
+        guard let scrollView = self.view.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView,
+              let contentView = scrollView.subviews.first else { return }
+        
+        var originalTitle: UILabel?
+        var originalSubtitle: UILabel?
+        
+        for view in contentView.subviews {
+            if let label = view as? UILabel {
+                if label.text == "Profile" {
+                    originalTitle = label
+                    label.alpha = 0
+                } else if label.text?.trimmingCharacters(in: .whitespaces) == "Manage your account" {
+                    originalSubtitle = label
+                    label.alpha = 0
+                }
+            }
+        }
+        
+        guard let oTitle = originalTitle, let oSubtitle = originalSubtitle else { return }
+        
+        let headerView = UIView()
+        headerView.backgroundColor = UIColor(red: 0.973, green: 0.961, blue: 0.933, alpha: 1.0)
+        headerView.translatesAutoresizingMaskIntoConstraints = false
+        self.view.addSubview(headerView)
+        
+        let pinnedTitle = UILabel()
+        pinnedTitle.text = oTitle.text
+        pinnedTitle.font = oTitle.font
+        pinnedTitle.textColor = oTitle.textColor
+        pinnedTitle.translatesAutoresizingMaskIntoConstraints = false
+        headerView.addSubview(pinnedTitle)
+        
+        let pinnedSubtitle = UILabel()
+        pinnedSubtitle.text = oSubtitle.text
+        pinnedSubtitle.font = oSubtitle.font
+        pinnedSubtitle.textColor = oSubtitle.textColor
+        pinnedSubtitle.translatesAutoresizingMaskIntoConstraints = false
+        headerView.addSubview(pinnedSubtitle)
+        
+        NSLayoutConstraint.activate([
+            headerView.topAnchor.constraint(equalTo: self.view.topAnchor),
+            headerView.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
+            headerView.trailingAnchor.constraint(equalTo: self.view.trailingAnchor),
+            headerView.bottomAnchor.constraint(equalTo: pinnedSubtitle.bottomAnchor, constant: 16),
+            
+            pinnedTitle.topAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            pinnedTitle.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 20),
+            
+            pinnedSubtitle.topAnchor.constraint(equalTo: pinnedTitle.bottomAnchor, constant: 8),
+            pinnedSubtitle.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 20)
+        ])
+        
+        // Pull scroll content up to reduce gap below the pinned header
+        scrollView.contentInset = UIEdgeInsets(top: -30, left: 0, bottom: 0, right: 0)
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -34,7 +86,6 @@ class ProfileViewController: UIViewController {
         updateUserData()
     }
     
-    // MARK: - Setup UI
     func setupUI() {
         // Style the avatar image view if it exists in the view hierarchy
         if let avatarView = findAvatarImageView() {
@@ -42,17 +93,74 @@ class ProfileViewController: UIViewController {
             avatarView.clipsToBounds = true
             avatarView.contentMode = .scaleAspectFill
         }
+        setupDeleteAccountButton()
+    }
+    
+    private func setupDeleteAccountButton() {
+        guard let logoutButton = logoutButton, let parentView = logoutButton.superview else { return }
+        
+        let deleteButton = UIButton(type: .system)
+        deleteButton.setTitle("Delete Account", for: .normal)
+        deleteButton.setTitleColor(.systemRed, for: .normal)
+        deleteButton.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+        deleteButton.translatesAutoresizingMaskIntoConstraints = false
+        deleteButton.addTarget(self, action: #selector(deleteAccountTapped), for: .touchUpInside)
+        
+        parentView.addSubview(deleteButton)
+        
+        NSLayoutConstraint.activate([
+            deleteButton.centerXAnchor.constraint(equalTo: logoutButton.centerXAnchor),
+            deleteButton.topAnchor.constraint(equalTo: logoutButton.bottomAnchor, constant: 16)
+        ])
+    }
+    
+    @objc private func deleteAccountTapped() {
+        let alert = UIAlertController(
+            title: "Delete Account",
+            message: "Are you sure you want to permanently delete your account? This action cannot be undone.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+        alert.addAction(UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+            self?.performDeleteAccount()
+        })
+        present(alert, animated: true)
+    }
+    
+    private func performDeleteAccount() {
+        let alert = UIAlertController(title: "Deleting...", message: "\nPlease wait.", preferredStyle: .alert)
+        present(alert, animated: true)
+        
+        DataManager.shared.deleteAccount { [weak self] success, errorMsg in
+            alert.dismiss(animated: true) {
+                if success {
+                    self?.navigateToLogin()
+                } else {
+                    let errAlert = UIAlertController(title: "Error", message: errorMsg ?? "Could not delete account.", preferredStyle: .alert)
+                    errAlert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self?.present(errAlert, animated: true)
+                }
+            }
+        }
     }
     
     // MARK: - Profile Card Tap (Edit Profile)
     private func setupProfileCardTap() {
-        // Find the profile card view (the card containing name/email/avatar)
-        // It's the view containing the nameLabel
-        if let card = nameLabel?.superview {
-            card.isUserInteractionEnabled = true
-            let tap = UITapGestureRecognizer(target: self, action: #selector(openEditProfile))
-            card.addGestureRecognizer(tap)
-        }
+        guard let card = nameLabel?.superview else { return }
+        card.isUserInteractionEnabled = true
+        let tap = UITapGestureRecognizer(target: self, action: #selector(openEditProfile))
+        card.addGestureRecognizer(tap)
+
+        // Chevron right indicator
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.right",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)))
+        chevron.tintColor = UIColor.systemGray3
+        chevron.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(chevron)
+        NSLayoutConstraint.activate([
+            chevron.centerYAnchor.constraint(equalTo: card.centerYAnchor),
+            chevron.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16)
+        ])
     }
     
     // MARK: - Info Row Taps
@@ -146,18 +254,25 @@ class ProfileViewController: UIViewController {
         if let avatarView = findAvatarImageView() {
             avatarView.layer.cornerRadius = 40
             avatarView.clipsToBounds = true
-            
+
             // Show initials first as placeholder
             if let name = DataManager.shared.getCurrentUser()?.name {
                 avatarView.image = generateInitialsImage(name: name, size: CGSize(width: 80, height: 80))
                 avatarView.tintColor = nil
             }
-            
-            // Load photo from Supabase asynchronously
-            DataManager.shared.loadProfilePhoto { photo in
-                if let photo = photo {
-                    avatarView.image = photo
-                    avatarView.tintColor = nil
+
+            // Skip network load if photo was just removed; clear the flag only
+            // inside the async block so a second viewWillAppear during the
+            // dismiss animation cannot sneak a stale photo back in.
+            if skipNextPhotoLoad {
+                skipNextPhotoLoad = false
+                // Do NOT kick off a network load — the initials placeholder above is correct.
+            } else {
+                DataManager.shared.loadProfilePhoto { photo in
+                    if let photo = photo {
+                        avatarView.image = photo
+                        avatarView.tintColor = nil
+                    }
                 }
             }
         }
@@ -165,42 +280,22 @@ class ProfileViewController: UIViewController {
         updateStatBoxes()
     }
     
-    // MARK: - Find Avatar Image View
     private func findAvatarImageView() -> UIImageView? {
-        // The avatar is the UIImageView inside the profile card (nameLabel's superview)
         guard let card = nameLabel?.superview else { return nil }
-        return card.subviews.compactMap { $0 as? UIImageView }.first
+        return firstImageView(in: card)
+    }
+
+    private func firstImageView(in view: UIView) -> UIImageView? {
+        for sub in view.subviews {
+            if let iv = sub as? UIImageView { return iv }
+            if let found = firstImageView(in: sub) { return found }
+        }
+        return nil
     }
     
     // MARK: - Initials Avatar Generator
     private func generateInitialsImage(name: String, size: CGSize) -> UIImage {
-        let initials = name.components(separatedBy: " ")
-            .compactMap { $0.first.map { String($0) } }
-            .prefix(2).joined().uppercased()
-        UIGraphicsBeginImageContextWithOptions(size, false, 0)
-        let ctx = UIGraphicsGetCurrentContext()!
-        let colors = [UIColor(red: 0.2, green: 0.6, blue: 1.0, alpha: 1.0),
-                      UIColor(red: 0.4, green: 0.3, blue: 0.9, alpha: 1.0)]
-        let gradient = CGGradient(
-            colorsSpace: CGColorSpaceCreateDeviceRGB(),
-            colors: colors.map { $0.cgColor } as CFArray,
-            locations: [0, 1])!
-        ctx.drawLinearGradient(gradient,
-                               start: .zero,
-                               end: CGPoint(x: size.width, y: size.height),
-                               options: [])
-        let attrs: [NSAttributedString.Key: Any] = [
-            .font: UIFont.systemFont(ofSize: size.width * 0.35, weight: .bold),
-            .foregroundColor: UIColor.white
-        ]
-        let str = initials as NSString
-        let strSize = str.size(withAttributes: attrs)
-        str.draw(at: CGPoint(x: (size.width - strSize.width) / 2,
-                             y: (size.height - strSize.height) / 2),
-                 withAttributes: attrs)
-        let img = UIGraphicsGetImageFromCurrentImageContext()!
-        UIGraphicsEndImageContext()
-        return img
+        return DataManager.shared.generateInitialsImage(name: name, size: size)
     }
     
     func updateStatBoxes() {
@@ -218,7 +313,7 @@ class ProfileViewController: UIViewController {
         let daysWithData = weekData.current.compactMap { $0 }.filter { $0 > 0 }
         
         if daysWithData.isEmpty {
-            ongoingCountLabel?.text = "—"
+            ongoingCountLabel?.text = "0"
         } else {
             let average = daysWithData.reduce(0.0, +) / Double(daysWithData.count)
             ongoingCountLabel?.text = String(format: "%.1f", average)
@@ -314,7 +409,12 @@ class ProfileViewController: UIViewController {
 
 // MARK: - EditProfileDelegate
 extension ProfileViewController: EditProfileDelegate {
-    func didUpdateProfile() {
-        updateUserData()
+    func didUpdateProfile(photoRemoved: Bool) {
+        // Set flag so the upcoming viewWillAppear call skips the network photo load.
+        // Do NOT call updateUserData() here — viewWillAppear fires automatically
+        // after the dismiss animation and will call it exactly once, respecting the flag.
+        if photoRemoved {
+            skipNextPhotoLoad = true
+        }
     }
 }

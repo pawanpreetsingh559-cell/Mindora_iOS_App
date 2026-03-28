@@ -1,10 +1,3 @@
-//
-//  SignInViewController.swift
-//  Mindora final
-//
-//  Created by Navya  on 15/11/25.
-//
-
 import UIKit
 
 class SignInViewController: UIViewController, UITextFieldDelegate {
@@ -13,10 +6,15 @@ class SignInViewController: UIViewController, UITextFieldDelegate {
     @IBOutlet weak var emailTextField: UITextField!
     @IBOutlet weak var passwordTextField: UITextField!
     @IBOutlet weak var continueButton: UIButton!
+    private let continueSpinner = UIActivityIndicatorView(style: .medium)
 
     override func viewDidLoad() {
         super.viewDidLoad()
         passwordTextField.isSecureTextEntry = true
+
+        nameTextField.tintColor = .black
+        emailTextField.tintColor = .black
+        passwordTextField.tintColor = .black
 
         // Keyboard handling
         nameTextField.delegate = self
@@ -94,7 +92,7 @@ class SignInViewController: UIViewController, UITextFieldDelegate {
         let password = passwordTextField.text ?? ""
 
         if !isValidName(name) {
-            showAlert(title: "Invalid Name", message: "Name should be at least 2 characters")
+            showAlert(title: "Invalid Name", message: "Name should be 2–21 characters and contain only letters and spaces.")
             return
         }
 
@@ -108,10 +106,16 @@ class SignInViewController: UIViewController, UITextFieldDelegate {
             return
         }
 
-        continueButton.isEnabled = false
+        // Guard: signing up requires a live connection to Supabase
+        guard NetworkMonitor.shared.isConnected else {
+            showNoInternetAlert()
+            return
+        }
+
+        setContinueLoading(true)
 
         DataManager.shared.sendSignUpOTP(name: name, email: email, password: password) { [weak self] success, errorMessage in
-            self?.continueButton.isEnabled = true
+            self?.setContinueLoading(false)
             
             if success {
                 let otpVC = OTPVerificationViewController()
@@ -122,9 +126,33 @@ class SignInViewController: UIViewController, UITextFieldDelegate {
                 
                 self?.navigationController?.pushViewController(otpVC, animated: true)
             } else {
-                let message = errorMessage ?? "Registration failed. Please try again."
+                var message = errorMessage ?? "Registration failed. Please try again."
+                if message.lowercased().contains("user already registered") {
+                    message = "An account with this email already exists. If you recently deleted your account, please use the Login screen to restore it."
+                }
                 self?.showAlert(title: "Error", message: message)
             }
+        }
+    }
+    
+    private func setContinueLoading(_ loading: Bool) {
+        continueButton.isEnabled = !loading
+        if loading {
+            continueButton.setTitle("", for: .normal)
+            continueButton.configuration?.title = ""
+            continueSpinner.color = .darkGray
+            continueSpinner.translatesAutoresizingMaskIntoConstraints = false
+            continueButton.addSubview(continueSpinner)
+            NSLayoutConstraint.activate([
+                continueSpinner.centerXAnchor.constraint(equalTo: continueButton.centerXAnchor),
+                continueSpinner.centerYAnchor.constraint(equalTo: continueButton.centerYAnchor)
+            ])
+            continueSpinner.startAnimating()
+        } else {
+            continueSpinner.stopAnimating()
+            continueSpinner.removeFromSuperview()
+            continueButton.setTitle("Continue", for: .normal)
+            continueButton.configuration?.title = "Continue"
         }
     }
 
@@ -148,7 +176,9 @@ class SignInViewController: UIViewController, UITextFieldDelegate {
     }
 
     private func isValidName(_ name: String) -> Bool {
-        return name.count >= 2
+        guard name.count >= 2, name.count <= 21 else { return false }
+        let allowed = CharacterSet.letters.union(.whitespaces).union(CharacterSet(charactersIn: "-'"))
+        return name.unicodeScalars.allSatisfy { allowed.contains($0) }
     }
 
     private func isValidEmail(_ email: String) -> Bool {

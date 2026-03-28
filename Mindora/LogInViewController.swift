@@ -1,10 +1,3 @@
-//
-//  LogInViewController.swift
-//  Mindora final
-//
-//  Created by Anirudh on 15/11/25.
-//
-
 import UIKit
 
 class LogInViewController: UIViewController, UITextFieldDelegate {
@@ -12,10 +5,14 @@ class LogInViewController: UIViewController, UITextFieldDelegate {
     @IBOutlet weak var emailTextField: UITextField!
     @IBOutlet weak var passwordTextField: UITextField!
     @IBOutlet weak var logInButton: UIButton!
+    private let loginSpinner = UIActivityIndicatorView(style: .medium)
 
     override func viewDidLoad() {
         super.viewDidLoad()
         passwordTextField.isSecureTextEntry = true
+
+        emailTextField.tintColor = .black
+        passwordTextField.tintColor = .black
 
         // Keyboard handling
         emailTextField.delegate = self
@@ -97,15 +94,26 @@ class LogInViewController: UIViewController, UITextFieldDelegate {
             return
         }
 
+        if !isValidEmail(email) {
+            showAlert(title: "Invalid Email", message: "Please enter a valid email address format.")
+            return
+        }
+
         if password.isEmpty {
             showAlert(title: "Error", message: "Please enter your password")
             return
         }
 
-        logInButton.isEnabled = false
+        // Guard: logging in requires a live connection to Supabase
+        guard NetworkMonitor.shared.isConnected else {
+            showNoInternetAlert()
+            return
+        }
+
+        setLoginLoading(true)
 
         DataManager.shared.sendLoginOTP(email: email, password: password) { [weak self] success, errorMessage in
-            self?.logInButton.isEnabled = true
+            self?.setLoginLoading(false)
             
             if success {
                 let otpVC = OTPVerificationViewController()
@@ -115,9 +123,33 @@ class LogInViewController: UIViewController, UITextFieldDelegate {
                 
                 self?.navigationController?.pushViewController(otpVC, animated: true)
             } else {
-                let message = errorMessage ?? "Login failed. Please check your credentials."
+                var message = errorMessage ?? "Login failed. Please check your credentials."
+                if message.lowercased().contains("invalid login credentials") {
+                    message = "No matching account was found with these details, or the password was incorrect."
+                }
                 self?.showAlert(title: "Login Failed", message: message)
             }
+        }
+    }
+    
+    private func setLoginLoading(_ loading: Bool) {
+        logInButton.isEnabled = !loading
+        if loading {
+            logInButton.setTitle("", for: .normal)
+            logInButton.configuration?.title = ""
+            loginSpinner.color = .darkGray
+            loginSpinner.translatesAutoresizingMaskIntoConstraints = false
+            logInButton.addSubview(loginSpinner)
+            NSLayoutConstraint.activate([
+                loginSpinner.centerXAnchor.constraint(equalTo: logInButton.centerXAnchor),
+                loginSpinner.centerYAnchor.constraint(equalTo: logInButton.centerYAnchor)
+            ])
+            loginSpinner.startAnimating()
+        } else {
+            loginSpinner.stopAnimating()
+            loginSpinner.removeFromSuperview()
+            logInButton.setTitle("Continue", for: .normal)
+            logInButton.configuration?.title = "Continue"
         }
     }
 
@@ -138,6 +170,12 @@ class LogInViewController: UIViewController, UITextFieldDelegate {
         let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
+    }
+
+    private func isValidEmail(_ email: String) -> Bool {
+        let emailPattern = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}"
+        let predicate = NSPredicate(format: "SELF MATCHES %@", emailPattern)
+        return predicate.evaluate(with: email)
     }
 
     private func showAlertWithAction(title: String, message: String, completion: @escaping () -> Void) {

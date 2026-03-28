@@ -1,10 +1,3 @@
-//
-//  ResetPasswordViewController.swift
-//  Mindora
-//
-//  Created by pawanpreet singh on 13/03/26.
-//
-
 import UIKit
 
 class ResetPasswordViewController: UIViewController, UITextFieldDelegate {
@@ -30,6 +23,9 @@ class ResetPasswordViewController: UIViewController, UITextFieldDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
+        
+        newPasswordTextField.tintColor = .black
+        confirmPasswordTextField.tintColor = .black
         
         let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         tap.cancelsTouchesInView = false

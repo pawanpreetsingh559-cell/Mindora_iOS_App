@@ -1,9 +1,3 @@
-//
-//  OnboardingViewController.swift
-//  Mindora final
-//
-//  Created by Navya  on 15/11/25.
-//
 import UIKit
 
 class OnboardingViewController: UIViewController {

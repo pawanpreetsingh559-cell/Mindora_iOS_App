@@ -1,10 +1,3 @@
-//
-//  OTPVerificationViewController.swift
-//  Mindora
-//
-//  Created by pawanpreet singh on 12/03/26.
-//
-
 import UIKit
 
 enum OTPAuthMode {
@@ -23,7 +16,7 @@ class OTPVerificationViewController: UIViewController, UITextFieldDelegate {
     
     private var resendCooldown: Int = 0
     private var cooldownTimer: Timer?
-    private var otpFields: [UITextField] = []
+    var otpFields: [UITextField] = []
     
     // MARK: - UI Elements
     private let logoImageView = UIImageView()
@@ -88,7 +81,7 @@ class OTPVerificationViewController: UIViewController, UITextFieldDelegate {
         view.addSubview(otpStackView)
         
         for i in 0..<6 {
-            let field = UITextField()
+            let field = OTPTextField()  // Use custom OTPTextField
             field.font = UIFont.systemFont(ofSize: 24, weight: .bold)
             field.textAlignment = .center
             field.keyboardType = .numberPad
@@ -97,8 +90,10 @@ class OTPVerificationViewController: UIViewController, UITextFieldDelegate {
             field.layer.cornerRadius = 12
             field.layer.borderWidth = 1.5
             field.layer.borderColor = UIColor.systemGray4.cgColor
+            field.tintColor = .black
             field.delegate = self
             field.tag = i
+            field.otpViewController = self  // Set reference for backspace handling
             field.translatesAutoresizingMaskIntoConstraints = false
             field.addTarget(self, action: #selector(textFieldDidChange(_:)), for: .editingChanged)
             
@@ -167,27 +162,23 @@ class OTPVerificationViewController: UIViewController, UITextFieldDelegate {
     // MARK: - UITextFieldDelegate
     
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        // Allow backspace
+        // Only allow single digit (backspace is handled by OTPTextField)
+        guard string.count <= 1 else { return false }
+        
+        // Allow backspace (empty string)
         if string.isEmpty {
-            textField.text = ""
-            textField.layer.borderColor = UIColor.systemGray4.cgColor
-            // Move to previous field
-            let prevIndex = textField.tag - 1
-            if prevIndex >= 0 {
-                otpFields[prevIndex].becomeFirstResponder()
-            }
+            return true
+        }
+        
+        // Only allow digits
+        guard string.rangeOfCharacter(from: .decimalDigits) != nil else {
             return false
         }
         
-        // Only allow single digit
-        guard string.count == 1, string.rangeOfCharacter(from: .decimalDigits) != nil else {
-            return false
-        }
-        
+        // Set the digit and move to next field
         textField.text = string
         textField.layer.borderColor = accentColor.cgColor
         
-        // Move to next field
         let nextIndex = textField.tag + 1
         if nextIndex < 6 {
             otpFields[nextIndex].becomeFirstResponder()
@@ -238,8 +229,8 @@ class OTPVerificationViewController: UIViewController, UITextFieldDelegate {
                 self?.setLoading(false)
                 if success {
                     DataManager.shared.recalculateButterflies()
-                    self?.showAlertWithAction(title: "Account Created", message: "Welcome \(self?.userName ?? "")! Your account is verified and ready.") {
-                        self?.navigateToDashboard()
+                    self?.showAlertWithAction(title: "Account Created 🎉", message: "Welcome \(self?.userName ?? "")! Your account is verified and ready.") {
+                        self?.showOnboardingThenDashboard()
                     }
                 } else {
                     self?.showAlert(title: "Verification Failed", message: error ?? "Invalid OTP. Please try again.")
@@ -338,8 +329,10 @@ class OTPVerificationViewController: UIViewController, UITextFieldDelegate {
     }
     
     private func startResendCooldown() {
-        resendCooldown = 60
+        resendCooldown = 180
         resendButton.isEnabled = false
+        resendButton.layer.removeAnimation(forKey: "pulse")
+        resendButton.alpha = 1.0
         updateResendTitle()
         
         cooldownTimer?.invalidate()
@@ -347,16 +340,44 @@ class OTPVerificationViewController: UIViewController, UITextFieldDelegate {
             guard let self = self else { return }
             self.resendCooldown -= 1
             self.updateResendTitle()
+            
+            // Start pulsing only in last 10 seconds
+            if self.resendCooldown == 10 {
+                self.startResendPulse()
+            }
+            
             if self.resendCooldown <= 0 {
                 self.cooldownTimer?.invalidate()
                 self.resendButton.isEnabled = true
-                self.resendButton.setTitle("Resend Code", for: .normal)
+                self.resendButton.layer.removeAnimation(forKey: "pulse")
+                self.resendButton.alpha = 1.0
+                UIView.performWithoutAnimation {
+                    self.resendButton.setTitle("Resend Code", for: .normal)
+                    self.resendButton.layoutIfNeeded()
+                }
             }
         }
     }
     
+    private func startResendPulse() {
+        let pulse = CABasicAnimation(keyPath: "opacity")
+        pulse.fromValue = 1.0
+        pulse.toValue = 0.3
+        pulse.duration = 0.6
+        pulse.autoreverses = true
+        pulse.repeatCount = .infinity
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        resendButton.layer.add(pulse, forKey: "pulse")
+    }
+    
     private func updateResendTitle() {
-        resendButton.setTitle("Resend Code (\(resendCooldown)s)", for: .normal)
+        let minutes = resendCooldown / 60
+        let seconds = resendCooldown % 60
+        let timeString = String(format: "%d:%02d", minutes, seconds)
+        UIView.performWithoutAnimation {
+            self.resendButton.setTitle("Resend Code (\(timeString))", for: .normal)
+            self.resendButton.layoutIfNeeded()
+        }
     }
     
     private func setLoading(_ loading: Bool) {
@@ -371,6 +392,16 @@ class OTPVerificationViewController: UIViewController, UITextFieldDelegate {
         }
     }
     
+    private func showOnboardingThenDashboard() {
+        let onboarding = PremiumOnboardingViewController()
+        onboarding.modalPresentationStyle = .fullScreen
+        onboarding.modalTransitionStyle = .crossDissolve
+        onboarding.onFinish = { [weak self] in
+            self?.navigateToDashboard()
+        }
+        present(onboarding, animated: true)
+    }
+
     private func navigateToDashboard() {
         let storyboard = UIStoryboard(name: "Main", bundle: nil)
         let tabBarController = storyboard.instantiateViewController(withIdentifier: "Dashboard")
@@ -398,5 +429,38 @@ class OTPVerificationViewController: UIViewController, UITextFieldDelegate {
     
     deinit {
         cooldownTimer?.invalidate()
+    }
+}
+
+// MARK: - Custom OTP TextField for Backspace Handling
+class OTPTextField: UITextField {
+    weak var otpViewController: OTPVerificationViewController?
+    
+    override func deleteBackward() {
+        let currentText = self.text ?? ""
+        
+        // If current field has text, clear it first
+        if !currentText.isEmpty {
+            self.text = ""
+            self.layer.borderColor = UIColor.systemGray4.cgColor
+            return
+        }
+        
+        // Current field is empty - find and clear previous field
+        if let vc = otpViewController {
+            let currentIndex = self.tag
+            
+            for i in stride(from: currentIndex - 1, through: 0, by: -1) {
+                let prevField = vc.otpFields[i]
+                let prevText = prevField.text ?? ""
+                
+                if !prevText.isEmpty {
+                    prevField.text = ""
+                    prevField.layer.borderColor = UIColor.systemGray4.cgColor
+                    prevField.becomeFirstResponder()
+                    return
+                }
+            }
+        }
     }
 }

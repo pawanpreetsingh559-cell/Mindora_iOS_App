@@ -1,10 +1,3 @@
-//
-//  FadeSegue.swift
-//  Mindora final
-//
-//  Created by Navya on 12/11/25.
-//
-
 import UIKit
 
 class FadeSegue: UIStoryboardSegue {

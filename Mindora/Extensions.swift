@@ -1,13 +1,5 @@
-//
-//  Extensions.swift
-//  Mindora
-//
-//  Created by pawanpreet singh on 18/12/25.
-//
-
-
-
 import UIKit
+import Network
 
 @IBDesignable
 extension UIView {
@@ -64,5 +56,40 @@ extension UIColor {
         let blue = CGFloat(rgbValue & 0x0000FF) / 255.0
         
         self.init(red: red, green: green, blue: blue, alpha: 1.0)
+    }
+}
+
+// MARK: - NetworkMonitor
+/// Lightweight singleton that tracks live internet reachability using NWPathMonitor.
+/// Start it once from AppDelegate; then query `NetworkMonitor.shared.isConnected` anywhere.
+final class NetworkMonitor {
+    static let shared = NetworkMonitor()
+
+    private let monitor = NWPathMonitor()
+    private let queue   = DispatchQueue(label: "com.mindora.networkMonitor")
+
+    /// `true` when the device has an active internet path.
+    private(set) var isConnected: Bool = true
+
+    private init() {
+        monitor.pathUpdateHandler = { [weak self] path in
+            self?.isConnected = path.status == .satisfied
+        }
+        monitor.start(queue: queue)
+    }
+}
+
+// MARK: - UIViewController + No-Internet alert
+extension UIViewController {
+    /// Shows a standard "No Internet Connection" alert.
+    /// Perfect for gating any action that requires Supabase.
+    func showNoInternetAlert() {
+        let alert = UIAlertController(
+            title: "No Internet Connection",
+            message: "You need an active internet connection to proceed. Please check your Wi-Fi or mobile data and try again.",
+            preferredStyle: .alert
+        )
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 }

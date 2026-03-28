@@ -472,10 +472,10 @@ class AchievementCell: UICollectionViewCell {
 
     private func growthShortDesc(for id: String) -> String {
         switch id {
-        case "growth_egg":         return "Stage 1 — First Egg 🥚"
-        case "growth_caterpillar": return "Stage 2 — Caterpillar Born 🐛"
-        case "growth_cocoon":      return "Stage 3 — Into the Cocoon 🫘"
-        case "growth_butterfly":   return "Stage 4 — Butterfly Emerges 🦋"
+        case "growth_egg":         return "First Egg 🥚"
+        case "growth_caterpillar": return "Caterpillar Born 🐛"
+        case "growth_cocoon":      return "Into the pupa 🫘"
+        case "growth_butterfly":   return "Butterfly Emerges 🦋"
         default:                   return "Growth milestone!"
         }
     }

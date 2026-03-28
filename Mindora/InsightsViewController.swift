@@ -1,15 +1,6 @@
-//
-//  InsightsViewController.swift
-//  Mindora final
-//
-//  Created by Anirudh on 15/11/25.
-//
-
-
-
 import UIKit
 
-class InsightsViewController: UIViewController {
+class InsightsViewController: UIViewController, UIScrollViewDelegate {
     
     // MARK: - Outlets
     @IBOutlet weak var totalPointsLabel: UILabel!
@@ -31,11 +22,14 @@ class InsightsViewController: UIViewController {
     
     // MARK: - Graph Outlet
     @IBOutlet weak var graphContainerView: UIView!
+    var graphSegmentControl: UISegmentedControl?
+    var graphScrollView: UIScrollView?
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        setupFixedHeader()
         setupUI()
         setupBubbleAnimations()
         
@@ -67,6 +61,71 @@ class InsightsViewController: UIViewController {
         updateDailyGoalDisplay()
         
         drawGraph()
+    }
+    
+    private func setupFixedHeader() {
+        // Find the scroll view and its content view
+        guard let scrollView = self.view.subviews.first(where: { $0 is UIScrollView }) as? UIScrollView,
+              let contentView = scrollView.subviews.first else { return }
+        
+        var originalTitle: UILabel?
+        var originalSubtitle: UILabel?
+        
+        // Locate the original labels based on their text and hide them
+        for view in contentView.subviews {
+            if let label = view as? UILabel {
+                if label.text == "Insights" {
+                    originalTitle = label
+                    label.alpha = 0
+                } else if label.text == "Track your wellness journey and progress" {
+                    originalSubtitle = label
+                    label.alpha = 0
+                }
+            }
+        }
+        
+        guard let oTitle = originalTitle, let oSubtitle = originalSubtitle else { return }
+        
+        // Create the sticky header container
+        let headerView = UIView()
+        headerView.backgroundColor = UIColor(red: 0.973, green: 0.961, blue: 0.933, alpha: 1.0)
+        headerView.translatesAutoresizingMaskIntoConstraints = false
+        self.view.addSubview(headerView)
+        
+        // Add duplicate title
+        let pinnedTitle = UILabel()
+        pinnedTitle.text = oTitle.text
+        pinnedTitle.font = oTitle.font
+        pinnedTitle.textColor = oTitle.textColor
+        pinnedTitle.translatesAutoresizingMaskIntoConstraints = false
+        headerView.addSubview(pinnedTitle)
+        
+        // Add duplicate subtitle
+        let pinnedSubtitle = UILabel()
+        pinnedSubtitle.text = oSubtitle.text
+        pinnedSubtitle.font = oSubtitle.font
+        pinnedSubtitle.textColor = oSubtitle.textColor
+        pinnedSubtitle.translatesAutoresizingMaskIntoConstraints = false
+        headerView.addSubview(pinnedSubtitle)
+        
+        // Setup constraints to lock the header to the top of the screen
+        NSLayoutConstraint.activate([
+            headerView.topAnchor.constraint(equalTo: self.view.topAnchor),
+            headerView.leadingAnchor.constraint(equalTo: self.view.leadingAnchor),
+            headerView.trailingAnchor.constraint(equalTo: self.view.trailingAnchor),
+            headerView.bottomAnchor.constraint(equalTo: pinnedSubtitle.bottomAnchor, constant: 16),
+            
+            // Push title down to match original safe area constraints plus margin
+            pinnedTitle.topAnchor.constraint(equalTo: self.view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            pinnedTitle.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 20),
+            
+            pinnedSubtitle.topAnchor.constraint(equalTo: pinnedTitle.bottomAnchor, constant: 8),
+            pinnedSubtitle.leadingAnchor.constraint(equalTo: headerView.leadingAnchor, constant: 20)
+        ])
+        
+        // Pull the scroll view content up slightly to reduce the physical gap
+        // between the invisible labels in the scroll view and the Daily Goal card
+        scrollView.contentInset = UIEdgeInsets(top: -30, left: 0, bottom: 0, right: 0)
     }
 }
 
@@ -197,22 +256,73 @@ extension InsightsViewController {
 // MARK: - Graph Logic
 extension InsightsViewController {
     
+    @objc func graphSegmentChanged(_ sender: UISegmentedControl) {
+        guard let scrollView = graphScrollView else { return }
+        let xOffset = CGFloat(sender.selectedSegmentIndex) * scrollView.frame.width
+        scrollView.setContentOffset(CGPoint(x: xOffset, y: 0), animated: true)
+    }
+
     func drawGraph() {
         DispatchQueue.main.async { [weak self] in
             guard let self = self, let container = self.graphContainerView else { return }
-            
-            // Wait for layout
             guard container.bounds.width > 0 else { return }
             
-            // Clear previous chart
             container.subviews.forEach { $0.removeFromSuperview() }
             container.layer.sublayers?.forEach { $0.removeFromSuperlayer() }
             
-            // Setup container styling
             container.layer.cornerRadius = 12
-            container.backgroundColor = UIColor(red: 0.973, green: 0.961, blue: 0.933, alpha: 1.0) // #F8F5EE
+            container.backgroundColor = UIColor(red: 0.973, green: 0.961, blue: 0.933, alpha: 1.0)
             
-            // Add white background container
+            // Add segmented control at the top
+            let segmentHeight: CGFloat = 30
+            let segmentPadding: CGFloat = 10
+            let segmentedControl = UISegmentedControl(items: ["Weekly", "Monthly"])
+            segmentedControl.selectedSegmentIndex = 0
+            segmentedControl.backgroundColor = .white
+            segmentedControl.selectedSegmentTintColor = UIColor(red:0.0, green:0.580, blue:1.0, alpha:1) // #0094FF
+            let selectedAttr: [NSAttributedString.Key: Any] = [
+                .foregroundColor: UIColor.white,
+                .font: UIFont.systemFont(ofSize: 13, weight: .semibold)
+            ]
+            segmentedControl.setTitleTextAttributes(selectedAttr, for: .selected)
+            segmentedControl.addTarget(self, action: #selector(self.graphSegmentChanged(_:)), for: .valueChanged)
+            segmentedControl.frame = CGRect(x: 20, y: segmentPadding, width: container.bounds.width - 40, height: segmentHeight)
+            container.addSubview(segmentedControl)
+            self.graphSegmentControl = segmentedControl
+            
+            let scrollY = segmentPadding + segmentHeight + segmentPadding
+            let scrollHeight = container.bounds.height - scrollY
+            
+            let scrollView = UIScrollView(frame: CGRect(x: 0, y: scrollY, width: container.bounds.width, height: scrollHeight))
+            scrollView.isPagingEnabled = true
+            scrollView.showsHorizontalScrollIndicator = false
+            scrollView.delegate = self
+            container.addSubview(scrollView)
+            self.graphScrollView = scrollView
+            
+            let width = scrollView.bounds.width
+            let height = scrollView.bounds.height
+            scrollView.contentSize = CGSize(width: width * 2, height: height)
+            
+            let weeklyContainer = UIView(frame: CGRect(x: 0, y: 0, width: width, height: height))
+            let monthlyContainer = UIView(frame: CGRect(x: width, y: 0, width: width, height: height))
+            
+            scrollView.addSubview(weeklyContainer)
+            scrollView.addSubview(monthlyContainer)
+            
+            self.drawWeeklyGraph(in: weeklyContainer)
+            self.drawMonthlyGraph(in: monthlyContainer)
+        }
+    }
+    
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        let page = round(scrollView.contentOffset.x / scrollView.frame.width)
+        if let segment = graphSegmentControl, segment.selectedSegmentIndex != Int(page) {
+            segment.selectedSegmentIndex = Int(page)
+        }
+    }
+
+    private func drawWeeklyGraph(in container: UIView) {
             let whiteContainer = UIView(frame: container.bounds.insetBy(dx: 10, dy: 10))
             whiteContainer.backgroundColor = .white
             whiteContainer.layer.cornerRadius = 12
@@ -244,6 +354,16 @@ extension InsightsViewController {
             let currentScores = data.current.map { $0 ?? 0.0 }
             let previousScores = data.previous
             let labels = data.labels
+            
+            // Check if there is any data to display
+            let hasData = currentScores.contains(where: { ($0 ?? 0) > 0 })
+                || previousScores.contains(where: { $0 > 0 })
+            
+            // If no data, show placeholder
+            if !hasData {
+                self.showPlaceholder(in: whiteContainer)
+                return
+            }
             
             // Layout Constants (adjusted for white container)
             let margin: CGFloat = 30
@@ -368,7 +488,196 @@ extension InsightsViewController {
             
             // Legend at bottom
             self.addLegend(in: whiteContainer)
+    }
+    
+    private func drawMonthlyGraph(in container: UIView) {
+        let whiteContainer = UIView(frame: container.bounds.insetBy(dx: 10, dy: 10))
+        whiteContainer.backgroundColor = .white
+        whiteContainer.layer.cornerRadius = 12
+        whiteContainer.layer.shadowColor = UIColor.black.cgColor
+        whiteContainer.layer.shadowOpacity = 0.1
+        whiteContainer.layer.shadowOffset = CGSize(width: 0, height: 2)
+        whiteContainer.layer.shadowRadius = 8
+        container.addSubview(whiteContainer)
+        
+        let titleLabel = UILabel(frame: CGRect(x: 20, y: 15, width: whiteContainer.bounds.width - 40, height: 25))
+        titleLabel.text = "Monthly Mood Score"
+        titleLabel.font = UIFont.systemFont(ofSize: 16, weight: .semibold)
+        titleLabel.textColor = .darkGray
+        whiteContainer.addSubview(titleLabel)
+        
+        let data = DataManager.shared.getMonthlyComparison()
+        
+        let dateLabel = UILabel(frame: CGRect(x: whiteContainer.bounds.width - 110, y: 15, width: 90, height: 25))
+        dateLabel.text = data.currentMonthName
+        dateLabel.font = UIFont.systemFont(ofSize: 12, weight: .regular)
+        dateLabel.textColor = .lightGray
+        dateLabel.textAlignment = .right
+        whiteContainer.addSubview(dateLabel)
+        
+        let currentScores = data.current.map { $0 ?? 0.0 }
+        let hasData = !currentScores.isEmpty && currentScores.contains(where: { $0 > 0 })
+            || data.previous.contains(where: { $0 > 0 })
+        
+        if !hasData {
+            self.showPlaceholder(in: whiteContainer)
+            return
         }
+        
+        let margin: CGFloat = 30
+        let topOffset: CGFloat = 60
+        let bottomOffset: CGFloat = 60
+        let graphWidth = whiteContainer.bounds.width - (margin * 2)
+        let graphHeight = whiteContainer.bounds.height - topOffset - bottomOffset
+        let maxValue: CGFloat = 5.0
+        let totalDays = data.labels.count
+        
+        // Y-axis grid
+        for i in 0...5 {
+            let value = CGFloat(i)
+            let y = topOffset + graphHeight * (1 - (value / maxValue))
+            let gridPath = UIBezierPath()
+            gridPath.move(to: CGPoint(x: margin, y: y))
+            gridPath.addLine(to: CGPoint(x: whiteContainer.bounds.width - margin, y: y))
+            let gridLayer = CAShapeLayer()
+            gridLayer.path = gridPath.cgPath
+            gridLayer.strokeColor = UIColor.systemGray6.cgColor
+            gridLayer.lineWidth = 1.0
+            if i > 0 { gridLayer.lineDashPattern = [4, 4] }
+            whiteContainer.layer.addSublayer(gridLayer)
+            let label = UILabel(frame: CGRect(x: 5, y: y - 10, width: margin - 10, height: 20))
+            label.text = "\(i)"
+            label.font = UIFont.systemFont(ofSize: 10, weight: .medium)
+            label.textColor = .darkGray
+            label.textAlignment = .right
+            whiteContainer.addSubview(label)
+        }
+        
+        let pointSpacing = graphWidth / CGFloat(max(1, totalDays - 1))
+        
+        // --- Green line (previous month) ---
+        let prevPath = UIBezierPath()
+        var prevFirstPoint = true
+        for (index, score) in data.previous.enumerated() {
+            guard index < totalDays else { break }
+            let x = margin + CGFloat(index) * pointSpacing
+            let clampedScore = min(max(CGFloat(score), 0), maxValue)
+            let y = topOffset + graphHeight * (1 - (clampedScore / maxValue))
+            if prevFirstPoint {
+                prevPath.move(to: CGPoint(x: x, y: y))
+                prevFirstPoint = false
+            } else {
+                prevPath.addLine(to: CGPoint(x: x, y: y))
+            }
+        }
+        
+        let prevLayer = CAShapeLayer()
+        prevLayer.path = prevPath.cgPath
+        prevLayer.strokeColor = UIColor.systemGreen.cgColor
+        prevLayer.lineWidth = 2.5
+        prevLayer.fillColor = UIColor.clear.cgColor
+        prevLayer.lineCap = .round
+        prevLayer.lineJoin = .round
+        whiteContainer.layer.addSublayer(prevLayer)
+        
+        let prevAnim = CABasicAnimation(keyPath: "strokeEnd")
+        prevAnim.fromValue = 0; prevAnim.toValue = 1
+        prevAnim.duration = 1.0
+        prevAnim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        prevLayer.add(prevAnim, forKey: "prevLine")
+        
+        // --- Blue line (current month) ---
+        let currPath = UIBezierPath()
+        var currFirstPoint = true
+        for (index, scoreRaw) in data.current.enumerated() {
+            guard index < totalDays else { break }
+            guard let score = scoreRaw else { continue }
+            let x = margin + CGFloat(index) * pointSpacing
+            let clampedScore = min(max(CGFloat(score), 0), maxValue)
+            let y = topOffset + graphHeight * (1 - (clampedScore / maxValue))
+            if currFirstPoint {
+                currPath.move(to: CGPoint(x: x, y: y))
+                currFirstPoint = false
+            } else {
+                currPath.addLine(to: CGPoint(x: x, y: y))
+            }
+        }
+        
+        let currLayer = CAShapeLayer()
+        currLayer.path = currPath.cgPath
+        currLayer.strokeColor = UIColor(red:0.0, green:0.580, blue:1.0, alpha:1).cgColor
+        currLayer.lineWidth = 3.0
+        currLayer.fillColor = UIColor.clear.cgColor
+        currLayer.lineCap = .round
+        currLayer.lineJoin = .round
+        whiteContainer.layer.addSublayer(currLayer)
+        
+        let currAnim = CABasicAnimation(keyPath: "strokeEnd")
+        currAnim.fromValue = 0; currAnim.toValue = 1
+        currAnim.duration = 1.0
+        currAnim.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        currLayer.add(currAnim, forKey: "currLine")
+        
+        // X-axis labels (every 5th day + first + last to avoid clutter)
+        for (index, dayLabel) in data.labels.enumerated() {
+            if index == 0 || index == totalDays - 1 || (index + 1) % 3 == 0 {
+                let x = margin + CGFloat(index) * pointSpacing
+                self.drawLabel(text: dayLabel, x: x, y: whiteContainer.bounds.height - 35, in: whiteContainer)
+            }
+        }
+        
+        // Legend
+        self.addMonthlyLegend(in: whiteContainer, prevName: data.previousMonthName, currName: data.currentMonthName)
+    }
+    
+    private func addMonthlyLegend(in container: UIView, prevName: String, currName: String) {
+        let legendStack = UIStackView()
+        legendStack.axis = .horizontal
+        legendStack.spacing = 25
+        legendStack.alignment = .center
+        legendStack.distribution = .equalSpacing
+        
+        // Green (previous month)
+        let greenStack = UIStackView()
+        greenStack.axis = .horizontal; greenStack.spacing = 5; greenStack.alignment = .center
+        let greenDot = UIView()
+        greenDot.backgroundColor = .systemGreen
+        greenDot.layer.cornerRadius = 5
+        greenDot.translatesAutoresizingMaskIntoConstraints = false
+        greenDot.widthAnchor.constraint(equalToConstant: 10).isActive = true
+        greenDot.heightAnchor.constraint(equalToConstant: 10).isActive = true
+        let greenLabel = UILabel()
+        greenLabel.text = prevName
+        greenLabel.textColor = .darkGray
+        greenLabel.font = UIFont.systemFont(ofSize: 11, weight: .medium)
+        greenStack.addArrangedSubview(greenDot)
+        greenStack.addArrangedSubview(greenLabel)
+        
+        // Blue (current month)
+        let blueStack = UIStackView()
+        blueStack.axis = .horizontal; blueStack.spacing = 5; blueStack.alignment = .center
+        let blueDot = UIView()
+        blueDot.backgroundColor = UIColor(red:0.0, green:0.580, blue:1.0, alpha:1)
+        blueDot.layer.cornerRadius = 5
+        blueDot.translatesAutoresizingMaskIntoConstraints = false
+        blueDot.widthAnchor.constraint(equalToConstant: 10).isActive = true
+        blueDot.heightAnchor.constraint(equalToConstant: 10).isActive = true
+        let blueLabel = UILabel()
+        blueLabel.text = currName
+        blueLabel.textColor = .darkGray
+        blueLabel.font = UIFont.systemFont(ofSize: 11, weight: .medium)
+        blueStack.addArrangedSubview(blueDot)
+        blueStack.addArrangedSubview(blueLabel)
+        
+        legendStack.addArrangedSubview(greenStack)
+        legendStack.addArrangedSubview(blueStack)
+        
+        container.addSubview(legendStack)
+        legendStack.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            legendStack.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            legendStack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10)
+        ])
     }
     
     // MARK: - Graph Helpers
@@ -443,6 +752,54 @@ extension InsightsViewController {
         NSLayoutConstraint.activate([
             legendStack.centerXAnchor.constraint(equalTo: container.centerXAnchor),
             legendStack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -10)
+        ])
+    }
+    
+    private func showPlaceholder(in container: UIView) {
+        // Create a centered placeholder view
+        let placeholderStack = UIStackView()
+        placeholderStack.axis = .vertical
+        placeholderStack.spacing = 16
+        placeholderStack.alignment = .center
+        placeholderStack.distribution = .equalSpacing
+        
+        // Placeholder icon (chart line uptrend SF Symbol)
+        let iconImageView = UIImageView()
+        let config = UIImage.SymbolConfiguration(pointSize: 48, weight: .regular)
+        iconImageView.image = UIImage(systemName: "chart.line.uptrend.xyaxis", withConfiguration: config)
+        iconImageView.tintColor = .systemBlue
+        iconImageView.contentMode = .scaleAspectFit
+        iconImageView.translatesAutoresizingMaskIntoConstraints = false
+        iconImageView.widthAnchor.constraint(equalToConstant: 60).isActive = true
+        iconImageView.heightAnchor.constraint(equalToConstant: 60).isActive = true
+        placeholderStack.addArrangedSubview(iconImageView)
+        
+        // Main message
+        let titleLabel = UILabel()
+        titleLabel.text = "No Mood Data Yet"
+        titleLabel.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
+        titleLabel.textColor = .darkGray
+        titleLabel.textAlignment = .center
+        placeholderStack.addArrangedSubview(titleLabel)
+        
+        // Description text
+        let descriptionLabel = UILabel()
+        descriptionLabel.text = "Complete calming sessions to see your mood score progression"
+        descriptionLabel.font = UIFont.systemFont(ofSize: 14, weight: .regular)
+        descriptionLabel.textColor = .systemGray
+        descriptionLabel.textAlignment = .center
+        descriptionLabel.numberOfLines = 0
+        descriptionLabel.lineBreakMode = .byWordWrapping
+        let descriptionConstraint = descriptionLabel.widthAnchor.constraint(equalToConstant: container.bounds.width - 60)
+        descriptionConstraint.isActive = true
+        placeholderStack.addArrangedSubview(descriptionLabel)
+        
+        // Add placeholder to container
+        container.addSubview(placeholderStack)
+        placeholderStack.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            placeholderStack.centerXAnchor.constraint(equalTo: container.centerXAnchor),
+            placeholderStack.centerYAnchor.constraint(equalTo: container.centerYAnchor)
         ])
     }
 }

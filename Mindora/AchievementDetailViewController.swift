@@ -42,6 +42,17 @@ class AchievementDetailViewController: UIViewController {
         } else {
             configure()
         }
+
+        // Add celebration animation only for newly unlocked achievements (first time viewing)
+        if achievement?.isUnlocked ?? false {
+            let hasSeenAnimation = UserDefaults.standard.bool(forKey: "seen_celebration_\(achievement?.id ?? "")")
+            if !hasSeenAnimation {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    self.addSparkleAnimation()
+                }
+                UserDefaults.standard.set(true, forKey: "seen_celebration_\(achievement?.id ?? "")")
+            }
+        }
     }
 
     // MARK: - Generic Configure (non-streak)
@@ -156,11 +167,6 @@ class AchievementDetailViewController: UIViewController {
         titleLbl.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(titleLbl)
 
-        // Tier pill
-        let tierPill = makeTierPill(tier: tier, isLocked: isLocked)
-        tierPill.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(tierPill)
-
         // Description card
         let descCard = makeDescriptionCard(achievement: achievement, tier: tier, isLocked: isLocked)
         descCard.translatesAutoresizingMaskIntoConstraints = false
@@ -196,10 +202,7 @@ class AchievementDetailViewController: UIViewController {
             titleLbl.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
             titleLbl.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -24),
 
-            tierPill.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 8),
-            tierPill.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-
-            descCard.topAnchor.constraint(equalTo: tierPill.bottomAnchor, constant: 20),
+            descCard.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 20),
             descCard.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
             descCard.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
 
@@ -364,9 +367,9 @@ class AchievementDetailViewController: UIViewController {
         stack.spacing = 12
 
         let items: [(String, String, String)] = [
-            ("flame.fill",    "\(achievement.requiredValue)", "Days"),
-            ("star.fill",     "\(tier.starCount)",            "Stars"),
-            ("shield.fill",   tier.label,                     "Tier")
+            ("flame.fill",  "\(achievement.requiredValue)",                              "Days Goal"),
+            ("flame.fill",  "\(achievement.currentValue)",                              "Current Streak"),
+            ("calendar",   "\(max(0, achievement.requiredValue - achievement.currentValue))", "Remaining Days")
         ]
 
         for (icon, value, subtitle) in items {
@@ -473,13 +476,19 @@ class AchievementDetailViewController: UIViewController {
             progressBar.progress = achievement.progress
             progressBar.progressTintColor = tier.ringColor
             progressBar.trackTintColor = .systemGray5
-            progressBar.layer.cornerRadius = 4
+            progressBar.layer.cornerRadius = 12
             progressBar.clipsToBounds = true
             progressBar.translatesAutoresizingMaskIntoConstraints = false
 
-            let percLbl = UILabel()
+            let percentLbl = UILabel()
             let perc = Int(achievement.progress * 100)
-            percLbl.text = "\(achievement.currentValue) / \(achievement.requiredValue) days  (\(perc)%)"
+            percentLbl.text = "\(perc)%"
+            percentLbl.font = .systemFont(ofSize: 14, weight: .bold); percentLbl.textColor = .white
+            percentLbl.textAlignment = .center; percentLbl.translatesAutoresizingMaskIntoConstraints = false
+            progressBar.addSubview(percentLbl)
+
+            let percLbl = UILabel()
+            percLbl.text = "\(achievement.currentValue) / \(achievement.requiredValue) days"
             percLbl.font = .systemFont(ofSize: 13, weight: .medium)
             percLbl.textColor = tier.ringColor
             percLbl.textAlignment = .center
@@ -505,7 +514,9 @@ class AchievementDetailViewController: UIViewController {
                 progressBar.topAnchor.constraint(equalTo: headerLbl.bottomAnchor, constant: 12),
                 progressBar.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
                 progressBar.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
-                progressBar.heightAnchor.constraint(equalToConstant: 8),
+                progressBar.heightAnchor.constraint(equalToConstant: 24),
+                percentLbl.centerXAnchor.constraint(equalTo: progressBar.centerXAnchor),
+                percentLbl.centerYAnchor.constraint(equalTo: progressBar.centerYAnchor),
 
                 percLbl.topAnchor.constraint(equalTo: progressBar.bottomAnchor, constant: 10),
                 percLbl.centerXAnchor.constraint(equalTo: card.centerXAnchor),
@@ -649,7 +660,6 @@ class AchievementDetailViewController: UIViewController {
 
         row.addSubview(circle)
         row.addSubview(textStack)
-        row.addSubview(tierLbl)
 
         NSLayoutConstraint.activate([
             circle.leadingAnchor.constraint(equalTo: row.leadingAnchor),
@@ -657,9 +667,7 @@ class AchievementDetailViewController: UIViewController {
 
             textStack.leadingAnchor.constraint(equalTo: circle.trailingAnchor, constant: 12),
             textStack.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-
-            tierLbl.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-            tierLbl.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            textStack.trailingAnchor.constraint(equalTo: row.trailingAnchor),
 
             row.heightAnchor.constraint(equalToConstant: 52)
         ])
@@ -758,10 +766,7 @@ class AchievementDetailViewController: UIViewController {
             titleLbl.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
             titleLbl.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -24),
 
-            tierPill.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 8),
-            tierPill.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-
-            descCard.topAnchor.constraint(equalTo: tierPill.bottomAnchor, constant: 20),
+            descCard.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 20),
             descCard.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
             descCard.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
 
@@ -904,8 +909,7 @@ class AchievementDetailViewController: UIViewController {
 
         let items: [(String, String, String)] = [
             ("leaf.fill",   "\(achievement.requiredValue)", "Gardens"),
-            ("leaf.fill",   "\(tier.leafCount)",            "Leaves"),
-            ("tree.fill",   tier.label,                     "Tier")
+            ("tree.fill",   tier.label,                     "Status")
         ]
 
         for (icon, value, subtitle) in items {
@@ -996,12 +1000,38 @@ class AchievementDetailViewController: UIViewController {
             progressBar.clipsToBounds = true
             progressBar.translatesAutoresizingMaskIntoConstraints = false
             let perc = Int(achievement.progress * 100)
-            let percLbl = UILabel()
-            percLbl.text = "\(achievement.currentValue) / \(achievement.requiredValue) gardens  (\(perc)%)"
-            percLbl.font = .systemFont(ofSize: 13, weight: .medium)
-            percLbl.textColor = tier.ringColor
-            percLbl.textAlignment = .center
-            percLbl.translatesAutoresizingMaskIntoConstraints = false
+            
+            // Progress bar container with percentage text overlay
+            let progressContainer = UIView()
+            progressContainer.translatesAutoresizingMaskIntoConstraints = false
+            progressContainer.addSubview(progressBar)
+            
+            let percTextLbl = UILabel()
+            percTextLbl.text = "\(perc)%"
+            percTextLbl.font = .systemFont(ofSize: 12, weight: .semibold)
+            percTextLbl.textColor = .white
+            percTextLbl.textAlignment = .center
+            percTextLbl.translatesAutoresizingMaskIntoConstraints = false
+            progressContainer.addSubview(percTextLbl)
+            
+            NSLayoutConstraint.activate([
+                progressBar.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
+                progressBar.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
+                progressBar.topAnchor.constraint(equalTo: progressContainer.topAnchor),
+                progressBar.bottomAnchor.constraint(equalTo: progressContainer.bottomAnchor),
+                progressBar.heightAnchor.constraint(equalToConstant: 24),
+                
+                percTextLbl.centerXAnchor.constraint(equalTo: progressContainer.centerXAnchor),
+                percTextLbl.centerYAnchor.constraint(equalTo: progressContainer.centerYAnchor)
+            ])
+            
+            let detailLbl = UILabel()
+            detailLbl.text = "\(achievement.currentValue) / \(achievement.requiredValue) gardens"
+            detailLbl.font = .systemFont(ofSize: 12, weight: .regular)
+            detailLbl.textColor = .secondaryLabel
+            detailLbl.textAlignment = .center
+            detailLbl.translatesAutoresizingMaskIntoConstraints = false
+            
             let goalLbl = UILabel()
             goalLbl.text = "Complete \(achievement.requiredValue - achievement.currentValue) more gardens to unlock!"
             goalLbl.font = .systemFont(ofSize: 12)
@@ -1010,19 +1040,18 @@ class AchievementDetailViewController: UIViewController {
             goalLbl.numberOfLines = 0
             goalLbl.translatesAutoresizingMaskIntoConstraints = false
             card.addSubview(headerLbl)
-            card.addSubview(progressBar)
-            card.addSubview(percLbl)
+            card.addSubview(progressContainer)
+            card.addSubview(detailLbl)
             card.addSubview(goalLbl)
             NSLayoutConstraint.activate([
                 headerLbl.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
                 headerLbl.centerXAnchor.constraint(equalTo: card.centerXAnchor),
-                progressBar.topAnchor.constraint(equalTo: headerLbl.bottomAnchor, constant: 12),
-                progressBar.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
-                progressBar.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
-                progressBar.heightAnchor.constraint(equalToConstant: 8),
-                percLbl.topAnchor.constraint(equalTo: progressBar.bottomAnchor, constant: 10),
-                percLbl.centerXAnchor.constraint(equalTo: card.centerXAnchor),
-                goalLbl.topAnchor.constraint(equalTo: percLbl.bottomAnchor, constant: 6),
+                progressContainer.topAnchor.constraint(equalTo: headerLbl.bottomAnchor, constant: 12),
+                progressContainer.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+                progressContainer.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+                detailLbl.topAnchor.constraint(equalTo: progressContainer.bottomAnchor, constant: 10),
+                detailLbl.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+                goalLbl.topAnchor.constraint(equalTo: detailLbl.bottomAnchor, constant: 6),
                 goalLbl.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
                 goalLbl.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
                 goalLbl.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16)
@@ -1132,24 +1161,17 @@ class AchievementDetailViewController: UIViewController {
         countLbl.font = .systemFont(ofSize: 12)
         countLbl.textColor = isCurrentOrPast ? tier.ringColor : .tertiaryLabel
         countLbl.translatesAutoresizingMaskIntoConstraints = false
-        let tierLbl = UILabel()
-        tierLbl.text = tier.label
-        tierLbl.font = .systemFont(ofSize: 10, weight: .heavy)
-        tierLbl.textColor = isCurrentOrPast ? tier.ringColor : .systemGray3
-        tierLbl.translatesAutoresizingMaskIntoConstraints = false
         let textStack = UIStackView(arrangedSubviews: [nameLbl, countLbl])
         textStack.axis = .vertical; textStack.spacing = 2
         textStack.translatesAutoresizingMaskIntoConstraints = false
         row.addSubview(circle)
         row.addSubview(textStack)
-        row.addSubview(tierLbl)
         NSLayoutConstraint.activate([
             circle.leadingAnchor.constraint(equalTo: row.leadingAnchor),
             circle.centerYAnchor.constraint(equalTo: row.centerYAnchor),
             textStack.leadingAnchor.constraint(equalTo: circle.trailingAnchor, constant: 12),
             textStack.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            tierLbl.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-            tierLbl.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            textStack.trailingAnchor.constraint(equalTo: row.trailingAnchor),
             row.heightAnchor.constraint(equalToConstant: 50)
         ])
         return row
@@ -1215,7 +1237,7 @@ class AchievementDetailViewController: UIViewController {
 
         let badge = PointsBadgeView()
         badge.translatesAutoresizingMaskIntoConstraints = false
-        badge.configure(tier: tier, points: achievement.requiredValue,
+        badge.configure(tier: tier, points: achievement.requiredValue, currentValue: achievement.currentValue,
                         iconName: achievement.iconName, isLocked: isLocked)
         container.addSubview(badge)
 
@@ -1262,10 +1284,7 @@ class AchievementDetailViewController: UIViewController {
             titleLbl.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
             titleLbl.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -24),
 
-            tierPill.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 8),
-            tierPill.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-
-            descCard.topAnchor.constraint(equalTo: tierPill.bottomAnchor, constant: 20),
+            descCard.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 20),
             descCard.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
             descCard.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
 
@@ -1332,14 +1351,6 @@ class AchievementDetailViewController: UIViewController {
         stack.alignment = .center
         stack.translatesAutoresizingMaskIntoConstraints = false
         pill.addSubview(stack)
-
-        for _ in 0..<tier.gemCount {
-            let iv = UIImageView(image: UIImage(systemName: tier.gemIcon))
-            iv.tintColor = .white
-            iv.widthAnchor.constraint(equalToConstant: 10).isActive = true
-            iv.heightAnchor.constraint(equalToConstant: 10).isActive = true
-            stack.addArrangedSubview(iv)
-        }
 
         let lbl = UILabel()
         lbl.text = tier.label
@@ -1408,7 +1419,6 @@ class AchievementDetailViewController: UIViewController {
 
         let items: [(String, String, String)] = [
             ("star.fill",    "\(achievement.requiredValue)", "Points"),
-            (tier.gemIcon,   "\(tier.gemCount)",             "Gems"),
             ("crown.fill",   tier.label,                     "Tier")
         ]
 
@@ -1497,16 +1507,42 @@ class AchievementDetailViewController: UIViewController {
             progressBar.progress = achievement.progress
             progressBar.progressTintColor = tier.ringColor
             progressBar.trackTintColor = .systemGray5
-            progressBar.layer.cornerRadius = 4
+            progressBar.layer.cornerRadius = 6
             progressBar.clipsToBounds = true
             progressBar.translatesAutoresizingMaskIntoConstraints = false
             let perc = Int(achievement.progress * 100)
+            
+            // Progress bar container with percentage text overlay
+            let progressContainer = UIView()
+            progressContainer.translatesAutoresizingMaskIntoConstraints = false
+            progressContainer.addSubview(progressBar)
+            
             let percLbl = UILabel()
-            percLbl.text = "\(achievement.currentValue) / \(achievement.requiredValue) pts  (\(perc)%)"
-            percLbl.font = .systemFont(ofSize: 13, weight: .medium)
-            percLbl.textColor = tier.ringColor
+            percLbl.text = "\(perc)%"
+            percLbl.font = .systemFont(ofSize: 12, weight: .semibold)
+            percLbl.textColor = .white
             percLbl.textAlignment = .center
             percLbl.translatesAutoresizingMaskIntoConstraints = false
+            progressContainer.addSubview(percLbl)
+            
+            NSLayoutConstraint.activate([
+                progressBar.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
+                progressBar.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
+                progressBar.topAnchor.constraint(equalTo: progressContainer.topAnchor),
+                progressBar.bottomAnchor.constraint(equalTo: progressContainer.bottomAnchor),
+                progressBar.heightAnchor.constraint(equalToConstant: 24),
+                
+                percLbl.centerXAnchor.constraint(equalTo: progressContainer.centerXAnchor),
+                percLbl.centerYAnchor.constraint(equalTo: progressContainer.centerYAnchor)
+            ])
+            
+            let detailLbl = UILabel()
+            detailLbl.text = "\(achievement.currentValue) / \(achievement.requiredValue) pts"
+            detailLbl.font = .systemFont(ofSize: 12, weight: .regular)
+            detailLbl.textColor = .secondaryLabel
+            detailLbl.textAlignment = .center
+            detailLbl.translatesAutoresizingMaskIntoConstraints = false
+            
             let goalLbl = UILabel()
             goalLbl.text = "Earn \(achievement.requiredValue - achievement.currentValue) more points to unlock!"
             goalLbl.font = .systemFont(ofSize: 12)
@@ -1514,20 +1550,21 @@ class AchievementDetailViewController: UIViewController {
             goalLbl.textAlignment = .center
             goalLbl.numberOfLines = 0
             goalLbl.translatesAutoresizingMaskIntoConstraints = false
+            
             card.addSubview(headerLbl)
-            card.addSubview(progressBar)
-            card.addSubview(percLbl)
+            card.addSubview(progressContainer)
+            card.addSubview(detailLbl)
             card.addSubview(goalLbl)
+            
             NSLayoutConstraint.activate([
                 headerLbl.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
                 headerLbl.centerXAnchor.constraint(equalTo: card.centerXAnchor),
-                progressBar.topAnchor.constraint(equalTo: headerLbl.bottomAnchor, constant: 12),
-                progressBar.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
-                progressBar.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
-                progressBar.heightAnchor.constraint(equalToConstant: 8),
-                percLbl.topAnchor.constraint(equalTo: progressBar.bottomAnchor, constant: 10),
-                percLbl.centerXAnchor.constraint(equalTo: card.centerXAnchor),
-                goalLbl.topAnchor.constraint(equalTo: percLbl.bottomAnchor, constant: 6),
+                progressContainer.topAnchor.constraint(equalTo: headerLbl.bottomAnchor, constant: 12),
+                progressContainer.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+                progressContainer.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+                detailLbl.topAnchor.constraint(equalTo: progressContainer.bottomAnchor, constant: 10),
+                detailLbl.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+                goalLbl.topAnchor.constraint(equalTo: detailLbl.bottomAnchor, constant: 6),
                 goalLbl.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
                 goalLbl.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
                 goalLbl.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16)
@@ -1616,7 +1653,7 @@ class AchievementDetailViewController: UIViewController {
             circle.layer.borderWidth = 2.5
             circle.layer.borderColor = tier.ringColor.cgColor
         }
-        let iconIV = UIImageView(image: UIImage(systemName: isCurrentOrPast ? tier.gemIcon : "lock.fill"))
+        let iconIV = UIImageView(image: UIImage(systemName: isCurrentOrPast ? "star.fill" : "lock.fill"))
         iconIV.tintColor = isCurrentOrPast ? .white : .systemGray3
         iconIV.contentMode = .scaleAspectFit
         iconIV.translatesAutoresizingMaskIntoConstraints = false
@@ -1637,24 +1674,17 @@ class AchievementDetailViewController: UIViewController {
         ptsLbl.font = .systemFont(ofSize: 12)
         ptsLbl.textColor = isCurrentOrPast ? tier.ringColor : .tertiaryLabel
         ptsLbl.translatesAutoresizingMaskIntoConstraints = false
-        let tierLbl = UILabel()
-        tierLbl.text = tier.label
-        tierLbl.font = .systemFont(ofSize: 10, weight: .heavy)
-        tierLbl.textColor = isCurrentOrPast ? tier.ringColor : .systemGray3
-        tierLbl.translatesAutoresizingMaskIntoConstraints = false
         let textStack = UIStackView(arrangedSubviews: [nameLbl, ptsLbl])
         textStack.axis = .vertical; textStack.spacing = 2
         textStack.translatesAutoresizingMaskIntoConstraints = false
         row.addSubview(circle)
         row.addSubview(textStack)
-        row.addSubview(tierLbl)
         NSLayoutConstraint.activate([
             circle.leadingAnchor.constraint(equalTo: row.leadingAnchor),
             circle.centerYAnchor.constraint(equalTo: row.centerYAnchor),
             textStack.leadingAnchor.constraint(equalTo: circle.trailingAnchor, constant: 12),
             textStack.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-            tierLbl.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-            tierLbl.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            textStack.trailingAnchor.constraint(equalTo: row.trailingAnchor),
             row.heightAnchor.constraint(equalToConstant: 50)
         ])
         return row
@@ -1663,7 +1693,7 @@ class AchievementDetailViewController: UIViewController {
     private func pointsMotivation(for id: String, isLocked: Bool) -> String {
         if isLocked {
             switch id {
-            case "points_200":  return "✦ Earn 200 points to claim your first gem."
+            case "points_200":  return "✦ Earn 200 points to lay your foundation of calm."
             case "points_350":  return "✦ 350 points of dedication awaits you."
             case "points_600":  return "✦ 600 points — where transformation begins."
             case "points_800":  return "✦ 800 points. Forge your inner stability."
@@ -1774,11 +1804,6 @@ class AchievementDetailViewController: UIViewController {
         titleLbl.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(titleLbl)
 
-        // Stage pill
-        let stagePill = makeGrowthStagePill(tier: tier, isLocked: isLocked)
-        stagePill.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(stagePill)
-
         // Description card
         let descCard = makeGrowthDescCard(achievement: achievement, tier: tier, isLocked: isLocked)
         descCard.translatesAutoresizingMaskIntoConstraints = false
@@ -1809,10 +1834,7 @@ class AchievementDetailViewController: UIViewController {
             titleLbl.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
             titleLbl.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -24),
 
-            stagePill.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 8),
-            stagePill.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-
-            descCard.topAnchor.constraint(equalTo: stagePill.bottomAnchor, constant: 20),
+            descCard.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 20),
             descCard.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
             descCard.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
 
@@ -1919,26 +1941,52 @@ class AchievementDetailViewController: UIViewController {
             hdr.translatesAutoresizingMaskIntoConstraints = false
             let pb = UIProgressView(progressViewStyle: .default)
             pb.progress = achievement.progress; pb.progressTintColor = tier.ringColor
-            pb.trackTintColor = .systemGray5; pb.layer.cornerRadius = 4; pb.clipsToBounds = true
+            pb.trackTintColor = .systemGray5; pb.layer.cornerRadius = 12; pb.clipsToBounds = true
             pb.translatesAutoresizingMaskIntoConstraints = false
             let perc = Int(achievement.progress * 100)
+            
+            // Progress bar container with percentage text overlay
+            let progressContainer = UIView()
+            progressContainer.translatesAutoresizingMaskIntoConstraints = false
+            progressContainer.addSubview(pb)
+            
             let percLbl = UILabel()
             percLbl.text = achievement.id == "growth_egg"
                 ? (achievement.currentValue >= 1 ? "Ready to unlock!" : "Complete your first session")
-                : "\(achievement.currentValue) / \(achievement.requiredValue) pts (\(perc)%)"
-            percLbl.font = .systemFont(ofSize: 13, weight: .medium); percLbl.textColor = tier.ringColor
-            percLbl.textAlignment = .center; percLbl.translatesAutoresizingMaskIntoConstraints = false
-            card.addSubview(hdr); card.addSubview(pb); card.addSubview(percLbl)
+                : "\(perc)%"
+            percLbl.font = .systemFont(ofSize: 12, weight: .semibold)
+            percLbl.textColor = .white
+            percLbl.textAlignment = .center
+            percLbl.translatesAutoresizingMaskIntoConstraints = false
+            progressContainer.addSubview(percLbl)
+            
+            NSLayoutConstraint.activate([
+                pb.topAnchor.constraint(equalTo: progressContainer.topAnchor),
+                pb.leadingAnchor.constraint(equalTo: progressContainer.leadingAnchor),
+                pb.trailingAnchor.constraint(equalTo: progressContainer.trailingAnchor),
+                pb.heightAnchor.constraint(equalToConstant: 24),
+                percLbl.centerYAnchor.constraint(equalTo: progressContainer.centerYAnchor),
+                percLbl.centerXAnchor.constraint(equalTo: progressContainer.centerXAnchor)
+            ])
+            
+            let detailLbl = UILabel()
+            detailLbl.text = "\(achievement.currentValue) / \(achievement.requiredValue) sessions"
+            detailLbl.font = .systemFont(ofSize: 12, weight: .regular)
+            detailLbl.textColor = .secondaryLabel
+            detailLbl.textAlignment = .center
+            detailLbl.translatesAutoresizingMaskIntoConstraints = false
+            
+            card.addSubview(hdr); card.addSubview(progressContainer); card.addSubview(detailLbl)
             NSLayoutConstraint.activate([
                 hdr.topAnchor.constraint(equalTo: card.topAnchor, constant: 16),
                 hdr.centerXAnchor.constraint(equalTo: card.centerXAnchor),
-                pb.topAnchor.constraint(equalTo: hdr.bottomAnchor, constant: 12),
-                pb.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
-                pb.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
-                pb.heightAnchor.constraint(equalToConstant: 8),
-                percLbl.topAnchor.constraint(equalTo: pb.bottomAnchor, constant: 10),
-                percLbl.centerXAnchor.constraint(equalTo: card.centerXAnchor),
-                percLbl.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16)
+                progressContainer.topAnchor.constraint(equalTo: hdr.bottomAnchor, constant: 12),
+                progressContainer.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
+                progressContainer.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
+                progressContainer.heightAnchor.constraint(equalToConstant: 24),
+                detailLbl.topAnchor.constraint(equalTo: progressContainer.bottomAnchor, constant: 10),
+                detailLbl.centerXAnchor.constraint(equalTo: card.centerXAnchor),
+                detailLbl.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -16)
             ])
         }
         return card
@@ -1952,9 +2000,9 @@ class AchievementDetailViewController: UIViewController {
 
         let stages: [(String, String, GrowthStageTier, String)] = [
             ("First Egg",        "1 session",  .egg,         "🥚"),
-            ("Caterpillar Born", "25 points",  .caterpillar, "🐛"),
-            ("Into the Cocoon",  "75 points",  .cocoon,      "🫘"),
-            ("Butterfly Emerges","150 points", .butterfly,   "🦋")
+            ("Caterpillar Born", "2 sessions", .caterpillar, "🐛"),
+            ("Into the pupa",    "3 sessions", .cocoon,      "🫘"),
+            ("Butterfly Emerges","4 sessions", .butterfly,   "🦋")
         ]
 
         var lastView: UIView = titleLbl
@@ -2004,18 +2052,12 @@ class AchievementDetailViewController: UIViewController {
             reqLbl.translatesAutoresizingMaskIntoConstraints = false
             let ts = UIStackView(arrangedSubviews: [nameLbl, reqLbl])
             ts.axis = .vertical; ts.spacing = 2; ts.translatesAutoresizingMaskIntoConstraints = false
-            let stageLbl = UILabel(); stageLbl.text = "Stage \(stageTier.stageNumber)"
-            stageLbl.font = .systemFont(ofSize: 10, weight: .heavy)
-            stageLbl.textColor = isActive ? stageTier.ringColor : .systemGray3
-            stageLbl.translatesAutoresizingMaskIntoConstraints = false
-            row.addSubview(circle); row.addSubview(ts); row.addSubview(stageLbl)
+            row.addSubview(circle); row.addSubview(ts)
             NSLayoutConstraint.activate([
                 circle.leadingAnchor.constraint(equalTo: row.leadingAnchor),
                 circle.centerYAnchor.constraint(equalTo: row.centerYAnchor),
                 ts.leadingAnchor.constraint(equalTo: circle.trailingAnchor, constant: 12),
                 ts.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-                stageLbl.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-                stageLbl.centerYAnchor.constraint(equalTo: row.centerYAnchor),
                 row.heightAnchor.constraint(equalToConstant: 50),
                 row.topAnchor.constraint(equalTo: lastView.bottomAnchor, constant: i == 0 ? 12 : 0),
                 row.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
@@ -2034,10 +2076,10 @@ class AchievementDetailViewController: UIViewController {
     private func growthMotivation(for id: String, isLocked: Bool) -> String {
         if isLocked {
             switch id {
-            case "growth_egg":         return "✦ Complete your first session to hatch your egg."
-            case "growth_caterpillar": return "✦ Reach 25 points to begin your crawl."
-            case "growth_cocoon":      return "✦ 75 points of stillness will wrap you in your cocoon."
-            case "growth_butterfly":   return "✦ 150 points. Your wings are waiting."
+            case "growth_egg":         return "✦ Complete 1 calming session to hatch your egg."
+            case "growth_caterpillar": return "✦ Complete 2 calming sessions to begin your crawl."
+            case "growth_cocoon":      return "✦ Complete any 3 calming sessions to enter pupa stage."
+            case "growth_butterfly":   return "✦ Complete 4 calming sessions. Your wings are waiting."
             default:                   return "✦ Keep growing to unlock this stage."
             }
         } else {
@@ -2104,10 +2146,6 @@ class AchievementDetailViewController: UIViewController {
         titleLbl.textAlignment = .center; titleLbl.textColor = .label
         titleLbl.translatesAutoresizingMaskIntoConstraints = false; container.addSubview(titleLbl)
 
-        // Tier pill
-        let tierPill = makeMindfulnessTierPill(tier: tier, isLocked: isLocked)
-        tierPill.translatesAutoresizingMaskIntoConstraints = false; container.addSubview(tierPill)
-
         // Description card
         let descCard = makeMindfulnessDescCard(achievement: achievement, tier: tier, isLocked: isLocked)
         descCard.translatesAutoresizingMaskIntoConstraints = false; container.addSubview(descCard)
@@ -2132,17 +2170,14 @@ class AchievementDetailViewController: UIViewController {
 
             badge.centerXAnchor.constraint(equalTo: container.centerXAnchor),
             badge.centerYAnchor.constraint(equalTo: headerView.bottomAnchor),
-            badge.widthAnchor.constraint(equalToConstant: 160),
-            badge.heightAnchor.constraint(equalToConstant: 180),
+            badge.widthAnchor.constraint(equalToConstant: 200),
+            badge.heightAnchor.constraint(equalToConstant: 220),
 
             titleLbl.topAnchor.constraint(equalTo: badge.bottomAnchor, constant: 16),
             titleLbl.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
             titleLbl.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -24),
 
-            tierPill.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 8),
-            tierPill.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-
-            descCard.topAnchor.constraint(equalTo: tierPill.bottomAnchor, constant: 20),
+            descCard.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 20),
             descCard.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
             descCard.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
 
@@ -2226,8 +2261,7 @@ class AchievementDetailViewController: UIViewController {
         stack.distribution = .fillEqually; stack.spacing = 12
         let items: [(String, String, String)] = [
             (tier.icon, "\(tier.sessionCount)", "Sessions"),
-            ("sun.max.fill", "1 Day", "Window"),
-            ("brain.head.profile", tier.label.components(separatedBy: " ").first ?? tier.label, "Level")
+            ("sun.max.fill", "1 Day", "Window")
         ]
         for (icon, value, subtitle) in items {
             let card = makeCard(); card.layer.cornerRadius = 14
@@ -2288,8 +2322,14 @@ class AchievementDetailViewController: UIViewController {
             hdr.translatesAutoresizingMaskIntoConstraints = false
             let pb = UIProgressView(progressViewStyle: .default)
             pb.progress = achievement.progress; pb.progressTintColor = tier.ringColor
-            pb.trackTintColor = .systemGray5; pb.layer.cornerRadius = 4; pb.clipsToBounds = true
+            pb.trackTintColor = .systemGray5; pb.layer.cornerRadius = 12; pb.clipsToBounds = true
             pb.translatesAutoresizingMaskIntoConstraints = false
+            let percentLbl = UILabel()
+            let percentage = Int((achievement.progress) * 100)
+            percentLbl.text = "\(percentage)%"
+            percentLbl.font = .systemFont(ofSize: 14, weight: .bold); percentLbl.textColor = .white
+            percentLbl.textAlignment = .center; percentLbl.translatesAutoresizingMaskIntoConstraints = false
+            pb.addSubview(percentLbl)
             let percLbl = UILabel()
             percLbl.text = "\(achievement.currentValue) / \(achievement.requiredValue) sessions today"
             percLbl.font = .systemFont(ofSize: 13, weight: .medium); percLbl.textColor = tier.ringColor
@@ -2306,7 +2346,9 @@ class AchievementDetailViewController: UIViewController {
                 pb.topAnchor.constraint(equalTo: hdr.bottomAnchor, constant: 12),
                 pb.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
                 pb.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
-                pb.heightAnchor.constraint(equalToConstant: 8),
+                pb.heightAnchor.constraint(equalToConstant: 24),
+                percentLbl.centerXAnchor.constraint(equalTo: pb.centerXAnchor),
+                percentLbl.centerYAnchor.constraint(equalTo: pb.centerYAnchor),
                 percLbl.topAnchor.constraint(equalTo: pb.bottomAnchor, constant: 10),
                 percLbl.centerXAnchor.constraint(equalTo: card.centerXAnchor),
                 goalLbl.topAnchor.constraint(equalTo: percLbl.bottomAnchor, constant: 6),
@@ -2474,10 +2516,6 @@ class AchievementDetailViewController: UIViewController {
         titleLbl.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(titleLbl)
 
-        let tierPill = makeButterflyTierPill(tier: tier, isLocked: isLocked)
-        tierPill.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(tierPill)
-
         let descCard = makeButterflyDescCard(achievement: achievement, tier: tier, isLocked: isLocked)
         descCard.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(descCard)
@@ -2503,16 +2541,13 @@ class AchievementDetailViewController: UIViewController {
             badge.centerXAnchor.constraint(equalTo: container.centerXAnchor),
             badge.centerYAnchor.constraint(equalTo: headerView.bottomAnchor),
             badge.widthAnchor.constraint(equalToConstant: 160),
-            badge.heightAnchor.constraint(equalToConstant: 180),
+            badge.heightAnchor.constraint(equalToConstant: 160),
 
             titleLbl.topAnchor.constraint(equalTo: badge.bottomAnchor, constant: 16),
             titleLbl.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
             titleLbl.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -24),
 
-            tierPill.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 8),
-            tierPill.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-
-            descCard.topAnchor.constraint(equalTo: tierPill.bottomAnchor, constant: 20),
+            descCard.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 20),
             descCard.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
             descCard.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
 
@@ -2656,7 +2691,6 @@ class AchievementDetailViewController: UIViewController {
 
         let items: [(String, String, String)] = [
             ("ladybug.fill",  "\(achievement.requiredValue)", "Butterflies"),
-            ("star.fill",     "\(tier.starCount)",            "Stars"),
             ("shield.fill",   tier.label,                     "Tier")
         ]
 
@@ -2751,13 +2785,19 @@ class AchievementDetailViewController: UIViewController {
             progressBar.progress = achievement.progress
             progressBar.progressTintColor = tier.ringColor
             progressBar.trackTintColor = .systemGray5
-            progressBar.layer.cornerRadius = 4
+            progressBar.layer.cornerRadius = 12
             progressBar.clipsToBounds = true
             progressBar.translatesAutoresizingMaskIntoConstraints = false
 
-            let percLbl = UILabel()
+            let percentLbl = UILabel()
             let perc = Int(achievement.progress * 100)
-            percLbl.text = "\(achievement.currentValue) / \(achievement.requiredValue) butterflies  (\(perc)%)"
+            percentLbl.text = "\(perc)%"
+            percentLbl.font = .systemFont(ofSize: 14, weight: .bold); percentLbl.textColor = .white
+            percentLbl.textAlignment = .center; percentLbl.translatesAutoresizingMaskIntoConstraints = false
+            progressBar.addSubview(percentLbl)
+
+            let percLbl = UILabel()
+            percLbl.text = "\(achievement.currentValue) / \(achievement.requiredValue) butterflies"
             percLbl.font = .systemFont(ofSize: 13, weight: .medium)
             percLbl.textColor = tier.ringColor
             percLbl.textAlignment = .center
@@ -2781,7 +2821,9 @@ class AchievementDetailViewController: UIViewController {
                 progressBar.topAnchor.constraint(equalTo: headerLbl.bottomAnchor, constant: 12),
                 progressBar.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
                 progressBar.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
-                progressBar.heightAnchor.constraint(equalToConstant: 8),
+                progressBar.heightAnchor.constraint(equalToConstant: 24),
+                percentLbl.centerXAnchor.constraint(equalTo: progressBar.centerXAnchor),
+                percentLbl.centerYAnchor.constraint(equalTo: progressBar.centerYAnchor),
                 percLbl.topAnchor.constraint(equalTo: progressBar.bottomAnchor, constant: 10),
                 percLbl.centerXAnchor.constraint(equalTo: card.centerXAnchor),
                 goalLbl.topAnchor.constraint(equalTo: percLbl.bottomAnchor, constant: 6),
@@ -2874,12 +2916,6 @@ class AchievementDetailViewController: UIViewController {
             countLbl.textColor = isCurrentOrPast ? tier.ringColor : .tertiaryLabel
             countLbl.translatesAutoresizingMaskIntoConstraints = false
 
-            let tierLbl = UILabel()
-            tierLbl.text = tier.label
-            tierLbl.font = .systemFont(ofSize: 10, weight: .heavy)
-            tierLbl.textColor = isCurrentOrPast ? tier.ringColor : .systemGray3
-            tierLbl.translatesAutoresizingMaskIntoConstraints = false
-
             let textStack = UIStackView(arrangedSubviews: [nameLbl, countLbl])
             textStack.axis = .vertical; textStack.spacing = 2
             textStack.translatesAutoresizingMaskIntoConstraints = false
@@ -2888,7 +2924,6 @@ class AchievementDetailViewController: UIViewController {
             row.translatesAutoresizingMaskIntoConstraints = false
             row.addSubview(circle)
             row.addSubview(textStack)
-            row.addSubview(tierLbl)
             card.addSubview(row)
 
             NSLayoutConstraint.activate([
@@ -2896,8 +2931,7 @@ class AchievementDetailViewController: UIViewController {
                 circle.centerYAnchor.constraint(equalTo: row.centerYAnchor),
                 textStack.leadingAnchor.constraint(equalTo: circle.trailingAnchor, constant: 12),
                 textStack.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-                tierLbl.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-                tierLbl.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+                textStack.trailingAnchor.constraint(equalTo: row.trailingAnchor),
                 row.heightAnchor.constraint(equalToConstant: 52),
                 row.topAnchor.constraint(equalTo: lastView.bottomAnchor, constant: i == 0 ? 12 : 0),
                 row.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
@@ -2982,10 +3016,6 @@ class AchievementDetailViewController: UIViewController {
         titleLbl.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(titleLbl)
 
-        let tierPill = makeSessionsTierPill(tier: tier, isLocked: isLocked)
-        tierPill.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(tierPill)
-
         let descCard = makeSessionsDescCard(achievement: achievement, tier: tier, isLocked: isLocked)
         descCard.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(descCard)
@@ -3017,10 +3047,7 @@ class AchievementDetailViewController: UIViewController {
             titleLbl.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 24),
             titleLbl.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -24),
 
-            tierPill.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 8),
-            tierPill.centerXAnchor.constraint(equalTo: container.centerXAnchor),
-
-            descCard.topAnchor.constraint(equalTo: tierPill.bottomAnchor, constant: 20),
+            descCard.topAnchor.constraint(equalTo: titleLbl.bottomAnchor, constant: 20),
             descCard.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 20),
             descCard.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -20),
 
@@ -3159,7 +3186,6 @@ class AchievementDetailViewController: UIViewController {
 
         let items: [(String, String, String)] = [
             ("figure.mind.and.body", "\(achievement.requiredValue)", "Sessions"),
-            ("star.fill",            "\(tier.starCount)",            "Stars"),
             ("shield.fill",          tier.label,                     "Tier")
         ]
 
@@ -3246,12 +3272,18 @@ class AchievementDetailViewController: UIViewController {
             progressBar.progress = achievement.progress
             progressBar.progressTintColor = tier.ringColor
             progressBar.trackTintColor = .systemGray5
-            progressBar.layer.cornerRadius = 4; progressBar.clipsToBounds = true
+            progressBar.layer.cornerRadius = 12; progressBar.clipsToBounds = true
             progressBar.translatesAutoresizingMaskIntoConstraints = false
 
-            let percLbl = UILabel()
+            let percentLbl = UILabel()
             let perc = Int(achievement.progress * 100)
-            percLbl.text = "\(achievement.currentValue) / \(achievement.requiredValue) sessions  (\(perc)%)"
+            percentLbl.text = "\(perc)%"
+            percentLbl.font = .systemFont(ofSize: 14, weight: .bold); percentLbl.textColor = .white
+            percentLbl.textAlignment = .center; percentLbl.translatesAutoresizingMaskIntoConstraints = false
+            progressBar.addSubview(percentLbl)
+
+            let percLbl = UILabel()
+            percLbl.text = "\(achievement.currentValue) / \(achievement.requiredValue) sessions"
             percLbl.font = .systemFont(ofSize: 13, weight: .medium)
             percLbl.textColor = tier.ringColor; percLbl.textAlignment = .center
             percLbl.translatesAutoresizingMaskIntoConstraints = false
@@ -3271,7 +3303,9 @@ class AchievementDetailViewController: UIViewController {
                 progressBar.topAnchor.constraint(equalTo: headerLbl.bottomAnchor, constant: 12),
                 progressBar.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 20),
                 progressBar.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -20),
-                progressBar.heightAnchor.constraint(equalToConstant: 8),
+                progressBar.heightAnchor.constraint(equalToConstant: 24),
+                percentLbl.centerXAnchor.constraint(equalTo: progressBar.centerXAnchor),
+                percentLbl.centerYAnchor.constraint(equalTo: progressBar.centerYAnchor),
                 percLbl.topAnchor.constraint(equalTo: progressBar.bottomAnchor, constant: 10),
                 percLbl.centerXAnchor.constraint(equalTo: card.centerXAnchor),
                 goalLbl.topAnchor.constraint(equalTo: percLbl.bottomAnchor, constant: 6),
@@ -3362,19 +3396,13 @@ class AchievementDetailViewController: UIViewController {
             countLbl.textColor = isCurrentOrPast ? tier.ringColor : .tertiaryLabel
             countLbl.translatesAutoresizingMaskIntoConstraints = false
 
-            let tierLbl = UILabel()
-            tierLbl.text = tier.label
-            tierLbl.font = .systemFont(ofSize: 10, weight: .heavy)
-            tierLbl.textColor = isCurrentOrPast ? tier.ringColor : .systemGray3
-            tierLbl.translatesAutoresizingMaskIntoConstraints = false
-
             let textStack = UIStackView(arrangedSubviews: [nameLbl, countLbl])
             textStack.axis = .vertical; textStack.spacing = 2
             textStack.translatesAutoresizingMaskIntoConstraints = false
 
             let row = UIView()
             row.translatesAutoresizingMaskIntoConstraints = false
-            row.addSubview(circle); row.addSubview(textStack); row.addSubview(tierLbl)
+            row.addSubview(circle); row.addSubview(textStack)
             card.addSubview(row)
 
             NSLayoutConstraint.activate([
@@ -3382,8 +3410,7 @@ class AchievementDetailViewController: UIViewController {
                 circle.centerYAnchor.constraint(equalTo: row.centerYAnchor),
                 textStack.leadingAnchor.constraint(equalTo: circle.trailingAnchor, constant: 12),
                 textStack.centerYAnchor.constraint(equalTo: row.centerYAnchor),
-                tierLbl.trailingAnchor.constraint(equalTo: row.trailingAnchor),
-                tierLbl.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+                textStack.trailingAnchor.constraint(equalTo: row.trailingAnchor),
                 row.heightAnchor.constraint(equalToConstant: 52),
                 row.topAnchor.constraint(equalTo: lastView.bottomAnchor, constant: i == 0 ? 12 : 0),
                 row.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
@@ -3782,5 +3809,75 @@ class AchievementDetailViewController: UIViewController {
             authorLbl.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -20)
         ])
         return card
+    }
+
+    // MARK: - Celebration Animation for Unlocked Achievements
+    private func addSparkleAnimation() {
+        let celebrationContainer = UIView()
+        celebrationContainer.translatesAutoresizingMaskIntoConstraints = false
+        celebrationContainer.backgroundColor = .clear
+        celebrationContainer.isUserInteractionEnabled = false
+        view.addSubview(celebrationContainer)
+
+        NSLayoutConstraint.activate([
+            celebrationContainer.topAnchor.constraint(equalTo: view.topAnchor),
+            celebrationContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            celebrationContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            celebrationContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+
+        let screenBounds = UIScreen.main.bounds
+        let confettiCount = 60
+        let colors: [UIColor] = [.systemYellow, .systemRed, .systemGreen, .systemCyan, .systemBlue, .systemPurple, .systemOrange, .systemPink]
+
+        for i in 0..<confettiCount {
+            let confetti = UIView()
+            confetti.backgroundColor = colors[i % colors.count]
+            confetti.layer.cornerRadius = 6
+
+            let randomX = CGFloat.random(in: 0...screenBounds.width)
+            let startY: CGFloat = -30
+            let randomSize = CGFloat.random(in: 8...16)
+
+            confetti.frame = CGRect(x: randomX, y: startY, width: randomSize, height: randomSize)
+            celebrationContainer.addSubview(confetti)
+
+            // Staggered animation start
+            let delay = Double(i) * 0.02
+            let duration = Double.random(in: 2.5...3.5)
+            let randomEndX = CGFloat.random(in: -50...screenBounds.width + 50)
+            let randomEndY = screenBounds.height + 50
+
+            // Fall animation
+            UIView.animate(
+                withDuration: duration,
+                delay: delay,
+                options: .curveLinear,
+                animations: {
+                    confetti.frame = CGRect(x: randomEndX, y: randomEndY, width: randomSize, height: randomSize)
+                    confetti.alpha = 0
+                },
+                completion: { _ in
+                    confetti.removeFromSuperview()
+                }
+            )
+
+            // Rotation animation
+            let rotation = CGFloat.random(in: 0...CGFloat.pi * 4)
+            UIView.animate(
+                withDuration: duration,
+                delay: delay,
+                options: .curveLinear,
+                animations: {
+                    confetti.transform = CGAffineTransform(rotationAngle: rotation)
+                },
+                completion: nil
+            )
+        }
+
+        // Remove container after 10 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+            celebrationContainer.removeFromSuperview()
+        }
     }
 }

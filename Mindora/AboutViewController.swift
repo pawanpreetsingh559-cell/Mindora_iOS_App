@@ -42,7 +42,7 @@ class AboutViewController: UIViewController {
         let descCard = makeCard()
         let descTitle = makeLabel("Our Mission", font: .systemFont(ofSize: 16, weight: .semibold), color: .label)
         let descText = makeLabel(
-            "Mindora is a personal mental wellness companion designed to help you understand your emotions, build healthy habits, and grow through daily reflection.\n\nWe believe small, consistent steps lead to meaningful change. Whether you're tracking your mood, practising breathing exercises, or watching your garden bloom — every action counts.",
+            "Mindora was created with a simple but profound belief: true growth happens in stillness. In a constantly moving world, we provide a peaceful sanctuary where you can pause, breathe, and reconnect with yourself.\n\nOur mission is to help you transform, step by step, much like a butterfly emerging from its cocoon. By nurturing your mindfulness through guided sessions, tracking your feelings, and watching your 3D AR Garden bloom, we empower you to build lifelong habits of calm, clarity, and inner peace.",
             font: .systemFont(ofSize: 15, weight: .regular), color: .secondaryLabel)
         descText.numberOfLines = 0
         let descStack = UIStackView(arrangedSubviews: [descTitle, descText])
@@ -62,10 +62,12 @@ class AboutViewController: UIViewController {
         let featTitle = makeLabel("Features", font: .systemFont(ofSize: 16, weight: .semibold), color: .label)
         let features: [(String, String)] = [
             ("face.smiling.fill", "Daily Mood Tracking"),
-            ("wind", "Breathing Exercises"),
+            ("wind", "Guided Breathing Sessions"),
+            ("leaf.fill", "Interactive 3D AR Garden"),
             ("trophy.fill", "Achievements & Growth Stages"),
-            ("leaf.fill", "Butterfly Garden"),
-            ("chart.bar.fill", "Mood Insights & Trends")
+            ("chart.bar.fill", "Analytics & Insights"),
+            ("person.crop.circle.badge.plus", "Customisable Avatars"),
+            ("cloud.fill", "Secure Cloud Sync")
         ]
         let featStack = UIStackView(arrangedSubviews: [featTitle])
         featStack.axis = .vertical
@@ -87,7 +89,7 @@ class AboutViewController: UIViewController {
         let divider2 = makeDivider()
 
         // Footer
-        let footer = makeLabel("Made with ❤️ by the Mindora Team\nsupport@mindora.app",
+        let footer = makeLabel("Made with ❤️ by the Mindora Team\nmindora.icodesquad@gmail.com",
                                font: .systemFont(ofSize: 13, weight: .regular),
                                color: .tertiaryLabel, alignment: .center)
         footer.numberOfLines = 0

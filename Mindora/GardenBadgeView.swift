@@ -112,7 +112,6 @@ class GardenBadgeView: UIView {
     private let iconImageView   = UIImageView()
     private let countLabel      = UILabel()
     private let countWordLabel  = UILabel()
-    private let tierLabel       = UILabel()
     private let leavesStack     = UIStackView()
 
     private var tier: GardenTier = .seed
@@ -175,20 +174,6 @@ class GardenBadgeView: UIView {
         countWordLabel.translatesAutoresizingMaskIntoConstraints = false
         addSubview(countWordLabel)
 
-        // Tier label
-        tierLabel.textAlignment = .center
-        tierLabel.font          = .systemFont(ofSize: 9, weight: .heavy)
-        tierLabel.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(tierLabel)
-
-        // Leaves stack
-        leavesStack.axis         = .horizontal
-        leavesStack.spacing      = 3
-        leavesStack.alignment    = .center
-        leavesStack.distribution = .fillEqually
-        leavesStack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(leavesStack)
-
         NSLayoutConstraint.activate([
             iconImageView.centerXAnchor.constraint(equalTo: centerXAnchor),
             iconImageView.centerYAnchor.constraint(equalTo: centerYAnchor, constant: -20),
@@ -199,14 +184,7 @@ class GardenBadgeView: UIView {
             countLabel.topAnchor.constraint(equalTo: iconImageView.bottomAnchor, constant: 2),
 
             countWordLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            countWordLabel.topAnchor.constraint(equalTo: countLabel.bottomAnchor, constant: 0),
-
-            tierLabel.centerXAnchor.constraint(equalTo: centerXAnchor),
-            tierLabel.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18),
-
-            leavesStack.centerXAnchor.constraint(equalTo: centerXAnchor),
-            leavesStack.bottomAnchor.constraint(equalTo: tierLabel.topAnchor, constant: -4),
-            leavesStack.heightAnchor.constraint(equalToConstant: 12)
+            countWordLabel.topAnchor.constraint(equalTo: countLabel.bottomAnchor, constant: 0)
         ])
     }
 
@@ -274,8 +252,6 @@ class GardenBadgeView: UIView {
             countLabel.text        = "\(count)"
             countLabel.textColor   = .systemGray
             countWordLabel.textColor = .systemGray2
-            tierLabel.text         = tier.label
-            tierLabel.textColor    = .systemGray2
         } else {
             gradientLayer.colors       = tier.gradientColors
             outerRingLayer.strokeColor = tier.ringColor.cgColor
@@ -285,12 +261,9 @@ class GardenBadgeView: UIView {
             countLabel.text            = "\(count)"
             countLabel.textColor       = .white
             countWordLabel.textColor   = UIColor.white.withAlphaComponent(0.85)
-            tierLabel.text             = tier.label
-            tierLabel.textColor        = UIColor.white.withAlphaComponent(0.9)
             pulseGlow()
         }
 
-        buildLeaves(count: tier.leafCount, isLocked: isLocked)
         setNeedsLayout()
         layoutIfNeeded()
     }

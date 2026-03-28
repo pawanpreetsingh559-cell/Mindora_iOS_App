@@ -1,11 +1,3 @@
-//
-//  SupabaseConfig.swift
-//  Mindora
-//
-//  Supabase client configuration.
-//  Replace the placeholder values below with your actual Supabase project credentials.
-//
-
 import Foundation
 import Supabase
 
