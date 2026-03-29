@@ -1,14 +1,5 @@
 <div align="center">
 
-
-
-
-![inside2](https://github.com/user-attachments/assets/f08fe0de-5d15-4b45-bc59-6592d70c065e)
-
-![inside4](https://github.com/user-attachments/assets/72c610e0-e6c8-4d02-a09d-1b11f3a8edce)
-![mindora-mood-analytics-feature-2](https://github.com/user-attachments/assets/ba14b039-5ebb-4051-8100-8f798c54576d)
-
-
   <img src="https://github.com/user-attachments/assets/005a0f7c-d404-403e-afa6-ca61a2d5a20f" alt="Mindora Logo" width="120" height="120" style="border-radius: 20px;">
 
   #  Mindora – Mental Wellness Companion
