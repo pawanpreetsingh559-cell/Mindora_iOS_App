@@ -1,8 +1,17 @@
 <div align="center">
-  <!-- TODO: Replace with your actual App Icon / Logo URL -->
-  <img src="https://via.placeholder.com/120/000000/FFFFFF/?text=Mindora" alt="Mindora Logo" width="120" height="120" style="border-radius: 20px;">
 
-  # 🦋 Mindora – Mental Wellness Companion
+
+
+
+![inside2](https://github.com/user-attachments/assets/f08fe0de-5d15-4b45-bc59-6592d70c065e)
+
+![inside4](https://github.com/user-attachments/assets/72c610e0-e6c8-4d02-a09d-1b11f3a8edce)
+![mindora-mood-analytics-feature-2](https://github.com/user-attachments/assets/ba14b039-5ebb-4051-8100-8f798c54576d)
+
+
+  <img src="https://github.com/user-attachments/assets/005a0f7c-d404-403e-afa6-ca61a2d5a20f" alt="Mindora Logo" width="120" height="120" style="border-radius: 20px;">
+
+  #  Mindora – Mental Wellness Companion
   
   **Breathe. Relieve. Transform.**
 
@@ -14,7 +23,7 @@
   </p>
   
   <!-- TODO: Replace with your hero iPhone mockup URL -->
-  <img src="https://via.placeholder.com/800x400/1A1A2E/FFFFFF/?text=Your+iPhone+Mockup+Here" alt="Hero Image" width="800">
+  <img src="https://github.com/user-attachments/assets/8c1b0897-8e6c-4619-8522-086a33a762b1" alt="Hero Image" width="800">
 </div>
 
 > **Mindora** is a minimalist iOS mental wellness app that replaces long, intimidating meditation with exactly 120 seconds of real emotional regulation. Find your peace, build micro-habits, and watch a 3D AR sanctuary bloom inside your own room.
@@ -37,9 +46,9 @@
 
 <p align="center">
   <!-- TODO: Replace these placeholders with your actual app screenshots -->
-  <img src="https://via.placeholder.com/250x500/16213E/40C1D7/?text=Home+Screen" width="30%">
-  <img src="https://via.placeholder.com/250x500/16213E/40C1D7/?text=AR+Garden" width="30%">
-  <img src="https://via.placeholder.com/250x500/16213E/40C1D7/?text=Mood+Analytics" width="30%">
+  <img src="https://github.com/user-attachments/assets/c7df94f0-a8cc-44c6-a20c-a5b111de0b20" width="30%">
+  <img src="https://github.com/user-attachments/assets/dba5bdd2-6fcf-425f-b4f2-ff730502ccfe" width="30%">
+  <img src="" width="30%">
 </p>
 
 ---
