@@ -13,8 +13,8 @@
     <img src="https://img.shields.io/badge/Rating-4+-brightgreen?style=flat-square" alt="Rating 4+">
   </p>
   
-  <!-- TODO: Replace with your hero iPhone mockup URL -->
-  <img src="https://github.com/user-attachments/assets/8c1b0897-8e6c-4619-8522-086a33a762b1" alt="Hero Image" width="800">
+  <!-- Hero iPhone Display -->
+  <img src="https://github.com/user-attachments/assets/8c1b0897-8e6c-4619-8522-086a33a762b1" alt="Hero Image" width="250" style="border-radius: 36px; border: 6px solid #1c1c1e; box-shadow: 0 10px 20px rgba(0,0,0,0.2);">
 </div>
 
 > **Mindora** is a minimalist iOS mental wellness app that replaces long, intimidating meditation with exactly 120 seconds of real emotional regulation. Find your peace, build micro-habits, and watch a 3D AR sanctuary bloom inside your own room.
@@ -36,10 +36,10 @@
 ## 📸 Screenshots
 
 <p align="center">
-  <!-- TODO: Replace these placeholders with your actual app screenshots -->
-  <img src="https://github.com/user-attachments/assets/c7df94f0-a8cc-44c6-a20c-a5b111de0b20" width="30%">
-  <img src="https://github.com/user-attachments/assets/dba5bdd2-6fcf-425f-b4f2-ff730502ccfe" width="30%">
-  <img src="" width="30%">
+  <!-- iPhone Styled Screenshots -->
+  <img src="https://github.com/user-attachments/assets/c7df94f0-a8cc-44c6-a20c-a5b111de0b20" width="28%" style="border-radius: 36px; border: 6px solid #1c1c1e; margin: 0 1%; box-shadow: 0 10px 20px rgba(0,0,0,0.2);">
+  <img src="https://github.com/user-attachments/assets/dba5bdd2-6fcf-425f-b4f2-ff730502ccfe" width="28%" style="border-radius: 36px; border: 6px solid #1c1c1e; margin: 0 1%; box-shadow: 0 10px 20px rgba(0,0,0,0.2);">
+  <img src="https://via.placeholder.com/250x541/1A1A2E/FFFFFF/?text=Add+3rd+Screenshot" width="28%" style="border-radius: 36px; border: 6px solid #1c1c1e; margin: 0 1%; box-shadow: 0 10px 20px rgba(0,0,0,0.2);">
 </p>
 
 ---
