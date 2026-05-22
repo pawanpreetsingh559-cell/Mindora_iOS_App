@@ -7,6 +7,12 @@
   **Breathe. Relieve. Transform.**
 
   <p>
+    <a href="https://lnkd.in/dbJUGySw" target="_blank">
+      <img src="https://developer.apple.com/app-store/marketing/guidelines/images/badge-download-on-the-app-store.svg" alt="Download on the App Store" height="40">
+    </a>
+  </p>
+
+  <p>
     <img src="https://img.shields.io/badge/Platform-iOS_16+-blue?logo=apple&style=flat-square" alt="Platform iOS">
     <img src="https://img.shields.io/badge/Swift-5.9-orange?logo=swift&style=flat-square" alt="Swift 5.9">
     <img src="https://img.shields.io/badge/Backend-Supabase-green?logo=supabase&style=flat-square" alt="Supabase">
